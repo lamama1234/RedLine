@@ -171,15 +171,15 @@ const STATUS = {
 };
 
 const SEED = [
-  { id:'b1',  address:'שדרות שז"ר 1',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:42, manager:'דוד לוי',     target:1000,  lat:32.2762, lng:34.8472, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b1',  address:'שדרות שז"ר 1',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:42, manager:'דוד לוי',     target:1000,  lat:32.2762, lng:34.8472, status:'committed', paid:0,     notes:'' },
   { id:'b2',  address:'שדרות שז"ר 3',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:38, manager:'שרה כהן',    target:1000,  lat:32.2755, lng:34.8480, status:'committed',   paid:0,     notes:'צפוי לשלם בקרוב' },
   { id:'b3',  address:'שדרות שז"ר 5',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:55, manager:'משה ישראלי', target:1000,  lat:32.2748, lng:34.8488, status:'paid',        paid:1000,  notes:'' },
   { id:'b4',  address:'שדרות שז"ר 7',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:60, manager:'יעקב מזרחי', target:1000,  lat:32.2741, lng:34.8495, status:'paid',        paid:1000,  notes:'שולם במלואו' },
   { id:'b5',  address:'שדרות שז"ר 9',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:36, manager:'מרים אברהם', target:1000,  lat:32.2735, lng:34.8503, status:'committed',   paid:0,     notes:'' },
-  { id:'b6',  address:'רחוב הגלים 10',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:48, manager:'רחל גולן',   target:1000,  lat:32.2770, lng:34.8460, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b6',  address:'רחוב הגלים 10',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:48, manager:'רחל גולן',   target:1000,  lat:32.2770, lng:34.8460, status:'committed', paid:0,     notes:'' },
   { id:'b7',  address:'רחוב הגלים 12',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:72, manager:'אבי שפירא',  target:1000,  lat:32.2778, lng:34.8452, status:'paid',        paid:1000,  notes:'שולם חלקית' },
-  { id:'b8',  address:'רחוב הגלים 14',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:50, manager:'חיים בר',    target:1000,  lat:32.2785, lng:34.8445, status:'uncommitted', paid:0,     notes:'' },
-  { id:'b9',  address:'שדרות ים התיכון 20',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:68,manager:'נעמי גרין', target:1000,  lat:32.2792, lng:34.8438, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b8',  address:'רחוב הגלים 14',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:50, manager:'חיים בר',    target:1000,  lat:32.2785, lng:34.8445, status:'committed', paid:0,     notes:'' },
+  { id:'b9',  address:'שדרות ים התיכון 20',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:68,manager:'נעמי גרין', target:1000,  lat:32.2792, lng:34.8438, status:'committed', paid:0,     notes:'' },
   { id:'b10', address:'שדרות ים התיכון 22',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:44,manager:'טלי שמש',  target:1000,  lat:32.2798, lng:34.8430, status:'committed',   paid:0,     notes:'' },
   { id:'b11', address:'רחוב פולג 2',      street:'רחוב פולג',     neighborhood:'Poleg',    units:40, manager:'אורן בן דוד',target:1000, lat:32.2820, lng:34.8400, status:'paid',        paid:1000,  notes:'' },
   { id:'b12', address:'רחוב פולג 4',      street:'רחוב פולג',     neighborhood:'Poleg',    units:35, manager:'ליאת כץ',   target:1000,  lat:32.2830, lng:34.8395, status:'committed',   paid:0,     notes:'' }
@@ -196,7 +196,7 @@ function mapDbToBuilding(row) {
     neighborhood: row.neighborhood || 'Ir Yamim',
     units: row.units || 40,
     manager: row.manager || '',
-    status: row.status || 'uncommitted',
+    status: row.status || 'committed',
     target: Number(row.target_ils !== undefined ? row.target_ils : (row.target || 1000)),
     paid: Number(row.paid_ils !== undefined ? row.paid_ils : (row.paid || 0)),
     lat: Number(row.lat),
@@ -215,7 +215,7 @@ function mapBuildingToDb(b) {
     neighborhood: b.neighborhood || 'Ir Yamim',
     units: Number(b.units || 40),
     manager: b.manager || '',
-    status: b.status || 'uncommitted',
+    status: b.status || 'committed',
     target_ils: Number(b.target || 1000),
     paid_ils: Number(b.paid || 0),
     lat: Number(b.lat),
@@ -547,7 +547,7 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
   const [target,       setTarget]       = useState(building.target || 1000);
   const [lat,          setLat]          = useState(building.lat ? building.lat.toFixed(6) : '');
   const [lng,          setLng]          = useState(building.lng ? building.lng.toFixed(6) : '');
-  const [status,       setStatus]       = useState(building.status);
+  const [status,       setStatus]       = useState(building.status || 'committed');
   const [paid,         setPaid]         = useState(building.paid || 0);
   const [notes,        setNotes]        = useState(building.notes || '');
   const [confirmDel,   setConfirmDel]   = useState(false);
@@ -599,7 +599,7 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Neighborhood</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Neighborhood *</p>
               <select value={neighborhood} onChange={e=>setNeighborhood(e.target.value)} style={{pointerEvents:'all'}}>
                 <option value="Ir Yamim">Ir Yamim</option>
                 <option value="Poleg">Poleg</option>
@@ -698,10 +698,11 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   const [address,      setAddress]      = useState(initialAddress || '');
   const [street,       setStreet]       = useState(initialStreet || '');
   const [buildingPoly, setBuildingPoly] = useState(initialPolygon || null);
-  const [neighborhood, setNeighborhood] = useState('Ir Yamim');
+  const [neighborhood, setNeighborhood] = useState(''); // FORCED NO DEFAULT VALUE
   const [units,        setUnits]        = useState(40);
   const [manager,      setManager]      = useState('');
   const [target,       setTarget]       = useState(1000);
+  const [status,       setStatus]       = useState('committed'); // DEFAULT TO COMMITTED
   const [lat,          setLat]          = useState(initialLat ? initialLat.toFixed(6) : '');
   const [lng,          setLng]          = useState(initialLng ? initialLng.toFixed(6) : '');
   const [acQuery,      setAcQuery]      = useState(initialAddress || '');
@@ -728,7 +729,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
     if (!s.polygon && info.polygon) setBuildingPoly(info.polygon);
   };
 
-  const valid = address.trim() && lat && lng && manager.trim();
+  const valid = address.trim() && neighborhood && lat && lng && manager.trim();
 
   const save = () => {
     if(!valid) return;
@@ -737,7 +738,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
       neighborhood, units: Number(units), manager: manager.trim(),
       target: Number(target), lat: parseFloat(lat), lng: parseFloat(lng),
       polygon: buildingPoly,
-      status: 'uncommitted', paid: 0, notes: '',
+      status: status, paid: status==='paid'? Number(target) : 0, notes: '',
     });
     onClose();
   };
@@ -794,8 +795,9 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Neighborhood</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Neighborhood *</p>
               <select value={neighborhood} onChange={e=>setNeighborhood(e.target.value)} style={{pointerEvents:'all'}}>
+                <option value="" disabled>-- Select Neighborhood --</option>
                 <option value="Ir Yamim">Ir Yamim</option>
                 <option value="Poleg">Poleg</option>
                 <option value="Other">Other</option>
@@ -818,6 +820,20 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
               <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Target Amount (₪)</p>
               <input type="number" value={target} min={0}
                 onChange={e=>setTarget(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Payment Status</p>
+            <div className="flex gap-4">
+              {Object.entries(STATUS).map(([key,cfg])=>(
+                <label key={key} className="flex items-center gap-1.5 cursor-pointer" style={{pointerEvents:'all'}}>
+                  <input type="radio" name="add_status" value={key} checked={status===key}
+                    onChange={()=>setStatus(key)}
+                    className="w-3.5 h-3.5" style={{pointerEvents:'all'}}/>
+                  <span className={`text-xs font-medium ${status===key?'text-white':'text-slate-400'}`}>{cfg.label}</span>
+                </label>
+              ))}
             </div>
           </div>
 
@@ -904,8 +920,8 @@ function App() {
   const [toast,          setToast]          = useState(null);
   const [osmFeatures,    setOsmFeatures]    = useState([]);
   const [isFixingPos,    setIsFixingPos]    = useState(false);
-  const [mapType,        setMapType]        = useState('satellite'); // 'satellite' or 'street'
-  
+  const [mapType,        setMapType]        = useState('street'); // STREET MAP AS DEFAULT
+
   const [dbLoading,      setDbLoading]      = useState(false);
   const [dbConnected,    setDbConnected]    = useState(false);
   const [isOffline,      setIsOffline]      = useState(!navigator.onLine);
@@ -1278,15 +1294,15 @@ function App() {
 
           {/* MAP VIEW / SATELLITE TOGGLE BUTTON */}
           <div className="glass rounded-2xl p-1 flex items-center gap-1 pointer-events-auto">
-            <button onClick={()=>{setMapType('satellite');showToast('Switched to Satellite View','info');}}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${mapType==='satellite'?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
-              <Icon name="mapPin" size={12}/>
-              <span>Satellite</span>
-            </button>
             <button onClick={()=>{setMapType('street');showToast('Switched to Street Map View','info');}}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${mapType==='street'?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
               <Icon name="map" size={12}/>
               <span>Street</span>
+            </button>
+            <button onClick={()=>{setMapType('satellite');showToast('Switched to Satellite View','info');}}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${mapType==='satellite'?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
+              <Icon name="mapPin" size={12}/>
+              <span>Satellite</span>
             </button>
           </div>
 
