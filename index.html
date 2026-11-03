@@ -170,7 +170,6 @@ const STATUS = {
   paid:        { label:'Paid',        color:'#34d399', fill:'#10b981',   fillOpacity:0.52, weight:2.5, badgeClass:'badge-paid'        },
 };
 
-const SEED_POLYGONS = {"b1": [[[34.84696, 32.27604], [34.84744, 32.27604], [34.84744, 32.27636], [34.84696, 32.27636], [34.84696, 32.27604]]]};
 const SEED = [
   { id:'b1',  address:'שדרות שז"ר 1',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:42, manager:'דוד לוי',     target:5000,  lat:32.2762, lng:34.8472, status:'uncommitted', paid:0,     notes:'' },
   { id:'b2',  address:'שדרות שז"ר 3',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:38, manager:'שרה כהן',    target:5000,  lat:32.2755, lng:34.8480, status:'committed',   paid:0,     notes:'צפוי לשלם בקרוב' },
@@ -183,15 +182,7 @@ const SEED = [
   { id:'b9',  address:'שדרות ים התיכון 20',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:68,manager:'נעמי גרין', target:10000, lat:32.2792, lng:34.8438, status:'uncommitted', paid:0,     notes:'' },
   { id:'b10', address:'שדרות ים התיכון 22',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:44,manager:'טלי שמש',  target:5000,  lat:32.2798, lng:34.8430, status:'committed',   paid:0,     notes:'' },
   { id:'b11', address:'רחוב פולג 2',      street:'רחוב פולג',     neighborhood:'Poleg',    units:40, manager:'אורן בן דוד',target:5000, lat:32.2820, lng:34.8400, status:'paid',        paid:5000,  notes:'' },
-  { id:'b12', address:'רחוב פולג 4',      street:'רחוב פולג',     neighborhood:'Poleg',    units:35, manager:'ליאת כץ',   target:5000,  lat:32.2830, lng:34.8395, status:'committed',   paid:0,     notes:'' },
-  { id:'b13', address:'שדרות ויצמן 45',   street:'שדרות ויצמן',   neighborhood:'Poleg',    units:88, manager:'רוני פרץ',  target:10000, lat:32.2812, lng:34.8408, status:'paid',        paid:10000, notes:'שולם במלואו ובזמן' },
-  { id:'b14', address:'שדרות ויצמן 47',   street:'שדרות ויצמן',   neighborhood:'Poleg',    units:64, manager:'דינה לפיד', target:7500,  lat:32.2818, lng:34.8415, status:'uncommitted', paid:0,     notes:'' },
-  { id:'b15', address:'שדרות ויצמן 49',   street:'שדרות ויצמן',   neighborhood:'Poleg',    units:52, manager:'עמי רוזן',  target:7500,  lat:32.2825, lng:34.8420, status:'committed',   paid:0,     notes:'הובטח תשלום לחודש הבא' },
-  { id:'b16', address:'רחוב אלון 3',      street:'רחוב אלון',     neighborhood:'Poleg',    units:30, manager:'יפה עוז',   target:5000,  lat:32.2835, lng:34.8380, status:'paid',        paid:5000,  notes:'' },
-  { id:'b17', address:'רחוב אלון 5',      street:'רחוב אלון',     neighborhood:'Poleg',    units:28, manager:'בן ציון',   target:5000,  lat:32.2845, lng:34.8375, status:'uncommitted', paid:0,     notes:'' },
-  { id:'b18', address:'רחוב הדקל 1',      street:'רחוב הדקל',     neighborhood:'Poleg',    units:46, manager:'שלומית בר', target:5000,  lat:32.2850, lng:34.8385, status:'committed',   paid:0,     notes:'' },
-  { id:'b19', address:'רחוב הדקל 3',      street:'רחוב הדקל',     neighborhood:'Poleg',    units:33, manager:'נחום ורד',  target:5000,  lat:32.2855, lng:34.8392, status:'paid',        paid:4500,  notes:'חסר ₪500' },
-  { id:'b20', address:'רחוב פולג 6',      street:'רחוב פולג',     neighborhood:'Poleg',    units:56, manager:'גיל יחיאל', target:7500,  lat:32.2840, lng:34.8388, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b12', address:'רחוב פולג 4',      street:'רחוב פולג',     neighborhood:'Poleg',    units:35, manager:'ליאת כץ',   target:5000,  lat:32.2830, lng:34.8395, status:'committed',   paid:0,     notes:'' }
 ];
 
 const fmt = n => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(n);
@@ -269,9 +260,23 @@ async function reverseLookup(lat, lng) {
 async function nominatim(query) {
   if (!query || query.length < 2) return [];
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query+' נתניה')}&format=json&limit=6&countrycodes=il&accept-language=he,en&bounded=1&viewbox=34.82,32.31,34.88,32.25`;
-    const data = await (await fetch(url,{headers:{'Accept-Language':'he,en'}})).json();
-    return data.map(x=>({display:x.display_name.split(',').slice(0,3).join(', '),lat:+x.lat,lng:+x.lon}));
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query+' נתניה')}&format=json&limit=6&polygon_geojson=1&countrycodes=il&accept-language=he,en`;
+    let res = await fetch(url,{headers:{'Accept-Language':'he,en'}});
+    let data = await res.json();
+    
+    // Fallback search without house numbers if exact address fails
+    if ((!data || data.length === 0) && /\d+/.test(query)) {
+      const streetOnly = query.replace(/\d+/g, '').trim();
+      url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(streetOnly+' נתניה')}&format=json&limit=6&polygon_geojson=1&countrycodes=il&accept-language=he,en`;
+      res = await fetch(url,{headers:{'Accept-Language':'he,en'}});
+      data = await res.json();
+    }
+    return data.map(x=>({
+      display: x.display_name.split(',').slice(0,3).join(', '),
+      lat: +x.lat,
+      lng: +x.lon,
+      polygon: (x.geojson && (x.geojson.type === 'Polygon' || x.geojson.type === 'MultiPolygon')) ? x.geojson.coordinates : null
+    }));
   } catch { return []; }
 }
 
@@ -327,6 +332,7 @@ const PATHS = {
   wifi:      'M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01',
   database:  'M4 7c0-1.66 3.58-3 8-3s8 1.34 8 3v10c0 1.66-3.58 3-8 3s-8-1.34-8-3V7zM4 12c0 1.66 3.58 3 8 3s8-1.34 8-3M4 17c0 1.66 3.58 3 8 3s8-1.34 8-3',
   settings:  'M12 15a3 3 0 100-6 3 3 0 000 6z',
+  compass:   'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm4.243-14.243l-6.364 2.121-2.121 6.364 6.364-2.121 2.121-6.364z',
 };
 const Icon = ({name,size=16,cls=''}) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
@@ -638,7 +644,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   const [acQuery,      setAcQuery]      = useState(initialAddress || '');
   const [acResults,    setAcResults]    = useState([]);
   const [acLoading,    setAcLoading]    = useState(false);
-  const [showAc,       setShowAc]       = useState(false);
+  const [showAc,         setShowAc]         = useState(false);
   const acTimer = useRef(null);
 
   const handleAcInput = v => {
@@ -653,10 +659,10 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
     setLat(s.lat.toFixed(6)); setLng(s.lng.toFixed(6));
     setShowAc(false); setAcResults([]);
     
-    // Auto lookup coordinates & footprint shape via reverse lookup
+    if (s.polygon) setBuildingPoly(s.polygon);
     const info = await reverseLookup(s.lat, s.lng);
     if (info.street) setStreet(info.street);
-    if (info.polygon) setBuildingPoly(info.polygon);
+    if (!s.polygon && info.polygon) setBuildingPoly(info.polygon);
   };
 
   const valid = address.trim() && lat && lng && manager.trim();
@@ -834,6 +840,7 @@ function App() {
   const [showList,       setShowList]       = useState(false);
   const [toast,          setToast]          = useState(null);
   const [osmFeatures,    setOsmFeatures]    = useState([]);
+  const [isFixingPos,    setIsFixingPos]    = useState(false);
   
   const [dbLoading,      setDbLoading]      = useState(false);
   const [dbConnected,    setDbConnected]    = useState(false);
@@ -1053,7 +1060,7 @@ function App() {
       const existing = buildings.find(b => distM(b.lat, b.lng, clickLat, clickLng) < 25);
       if (existing) { if (isAdmin) setSelectedBldg(existing); return; }
 
-      if (addMode || isAdmin) {
+      if (addMode) {
         if (tempMarkerRef.current){ map.removeLayer(tempMarkerRef.current); tempMarkerRef.current=null; }
         const pingIcon = L.divIcon({
           html:`<div style="position:relative;width:20px;height:20px"><div class="add-ping" style="position:absolute;inset:0;border-radius:50%;border:3px solid #10b981;"></div><div style="position:absolute;inset:4px;border-radius:50%;background:#10b981"></div></div>`,
@@ -1114,6 +1121,38 @@ function App() {
       try { await client.from('buildings').insert(mapBuildingToDb(newB)); } catch(err) {}
     }
   }, [showToast, dbConnected]);
+
+  const fixPositionsFromAddresses = async () => {
+    if (isFixingPos) return;
+    setIsFixingPos(true);
+    showToast(`Fixing ${buildings.length} building positions...`, 'info');
+    const updatedList = [...buildings];
+    let countFixed = 0;
+    const client = getSupabaseClient();
+
+    for (let i = 0; i < updatedList.length; i++) {
+      const b = updatedList[i];
+      showToast(`Geocoding (${i+1}/${updatedList.length}): ${b.address}...`, 'info');
+      const results = await nominatim(b.address);
+      if (results && results.length > 0) {
+        const top = results[0];
+        b.lat = top.lat;
+        b.lng = top.lng;
+        if (top.polygon) b.polygon = top.polygon;
+        countFixed++;
+        setBuildings([...updatedList]);
+        if (client && dbConnected) {
+          try { await client.from('buildings').upsert(mapBuildingToDb(b)); } catch(err) {}
+        }
+      }
+      // Rate limiting delay for OpenStreetMap
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    saveBuildings(updatedList);
+    setIsFixingPos(false);
+    showToast(`Fixed positions for ${countFixed} of ${buildings.length} buildings!`, 'success');
+  };
 
   const handleSearchInput = v => {
     setSearchQ(v); setShowAc(true);
@@ -1190,6 +1229,12 @@ function App() {
                 {addMode ? '🎯 Click map to place…' : 'Add via Map Selection'}
               </button>
               
+              <button onClick={fixPositionsFromAddresses} disabled={isFixingPos}
+                className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 t300 disabled:opacity-40">
+                {isFixingPos ? <div className="w-3 h-3 rounded-full border-2 border-slate-400 border-t-white spin"/> : <Icon name="compass" size={12}/>}
+                {isFixingPos ? 'Fixing Positions...' : 'Fix Positions via Address'}
+              </button>
+
               <button onClick={()=>{
                 const hdr = ['ID','Address','Neighborhood','Units','Manager','Status','Target','Paid','Notes'];
                 const rows = buildings.map(b => [b.id,`"${b.address}"`,b.neighborhood,b.units,`"${b.manager}"`,b.status,b.target,b.paid,`"${b.notes}"`]);
