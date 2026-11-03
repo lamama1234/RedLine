@@ -4,9 +4,9 @@
   "private": true,
   "description": "RedLine — Netanya Community Project Payments GIS Web Application (Poleg & Ir Yamim)",
   "scripts": {
-    "start": "python -m http.server 8080",
-    "dev": "python -m http.server 8080",
-    "build": "node -e \"console.log('Static SPA deployment bundle ready.')\""
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [
     "netanya",
