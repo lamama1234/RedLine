@@ -260,17 +260,29 @@ async function reverseLookup(lat, lng) {
 async function nominatim(query) {
   if (!query || query.length < 2) return [];
   try {
-    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query+' נתניה')}&format=json&limit=6&polygon_geojson=1&countrycodes=il&accept-language=he,en`;
+    // Clean quotes or special characters from query
+    const cleanQ = query.replace(/["']/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    // 1. Try exact query + Netanya, bounded in viewbox
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanQ+' נתניה')}&format=json&limit=5&polygon_geojson=1&countrycodes=il&bounded=1&viewbox=34.82,32.31,34.88,32.25&accept-language=he,en`;
     let res = await fetch(url,{headers:{'Accept-Language':'he,en'}});
     let data = await res.json();
     
-    // Fallback search without house numbers if exact address fails
-    if ((!data || data.length === 0) && /\d+/.test(query)) {
-      const streetOnly = query.replace(/\d+/g, '').trim();
-      url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(streetOnly+' נתניה')}&format=json&limit=6&polygon_geojson=1&countrycodes=il&accept-language=he,en`;
+    // 2. If no results, try without viewbox restriction in Netanya
+    if (!data || data.length === 0) {
+      url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanQ+' נתניה')}&format=json&limit=5&polygon_geojson=1&countrycodes=il&accept-language=he,en`;
       res = await fetch(url,{headers:{'Accept-Language':'he,en'}});
       data = await res.json();
     }
+
+    // 3. If still no results and query contains house numbers, try street only
+    if ((!data || data.length === 0) && /\d+/.test(cleanQ)) {
+      const streetOnly = cleanQ.replace(/\d+/g, '').replace(/[\,\-\.\u05f3\u05f4]/g, ' ').trim();
+      url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(streetOnly+' נתניה')}&format=json&limit=5&polygon_geojson=1&countrycodes=il&accept-language=he,en`;
+      res = await fetch(url,{headers:{'Accept-Language':'he,en'}});
+      data = await res.json();
+    }
+
     return data.map(x=>({
       display: x.display_name.split(',').slice(0,3).join(', '),
       lat: +x.lat,
@@ -333,6 +345,7 @@ const PATHS = {
   database:  'M4 7c0-1.66 3.58-3 8-3s8 1.34 8 3v10c0 1.66-3.58 3-8 3s-8-1.34-8-3V7zM4 12c0 1.66 3.58 3 8 3s8-1.34 8-3M4 17c0 1.66 3.58 3 8 3s8-1.34 8-3',
   settings:  'M12 15a3 3 0 100-6 3 3 0 000 6z',
   compass:   'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm4.243-14.243l-6.364 2.121-2.121 6.364 6.364-2.121 2.121-6.364z',
+  edit:      'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',
 };
 const Icon = ({name,size=16,cls=''}) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
@@ -530,13 +543,34 @@ const ConfigModal = ({ onClose, onSaved }) => {
 };
 
 const BuildingModal = ({building, onClose, onSave, onDelete}) => {
-  const [status, setStatus]   = useState(building.status);
-  const [paid,   setPaid]     = useState(building.paid || building.target);
-  const [notes,  setNotes]    = useState(building.notes || '');
-  const [confirmDel, setConfirmDel] = useState(false);
+  const [address,      setAddress]      = useState(building.address || '');
+  const [street,       setStreet]       = useState(building.street || building.address || '');
+  const [neighborhood, setNeighborhood] = useState(building.neighborhood || 'Ir Yamim');
+  const [units,        setUnits]        = useState(building.units || 40);
+  const [manager,      setManager]      = useState(building.manager || '');
+  const [target,       setTarget]       = useState(building.target || 5000);
+  const [lat,          setLat]          = useState(building.lat ? building.lat.toFixed(6) : '');
+  const [lng,          setLng]          = useState(building.lng ? building.lng.toFixed(6) : '');
+  const [status,       setStatus]       = useState(building.status);
+  const [paid,         setPaid]         = useState(building.paid || 0);
+  const [notes,        setNotes]        = useState(building.notes || '');
+  const [confirmDel,   setConfirmDel]   = useState(false);
 
   const save = () => {
-    onSave({...building, status, paid: status==='paid' ? Number(paid) : 0, notes});
+    onSave({
+      ...building,
+      address: address.trim(),
+      street: street.trim() || address.trim(),
+      neighborhood,
+      units: Number(units),
+      manager: manager.trim(),
+      target: Number(target),
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      status,
+      paid: status==='paid' ? Number(paid) : 0,
+      notes
+    });
     onClose();
   };
   const del = () => { onDelete(building.id); onClose(); };
@@ -547,32 +581,70 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
       <div className="glass modal-panel w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden fade-in-up"
            style={{border:'1px solid rgba(255,255,255,0.13)'}}>
         <div className="flex items-start justify-between p-5 border-b border-white/10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Icon name="building2" size={15} cls="text-blue-400"/>
-              <h2 className="text-sm font-bold text-white">{building.address}</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}>
+              <Icon name="edit" size={15} cls="text-white"/>
             </div>
-            <Badge status={building.status}/>
+            <div>
+              <h2 className="text-sm font-bold text-white">Edit Building Data</h2>
+              <p className="text-[10px] text-slate-400">{building.address}</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
             <Icon name="x" size={17}/>
           </button>
         </div>
 
-        <div className="p-4 grid grid-cols-2 gap-3 border-b border-white/10">
-          {[['🏘️ Neighborhood',building.neighborhood],['🏠 Units',`${building.units} apts`],['👤 Manager',building.manager],['🎯 Target',fmt(building.target)],['📍 Lat',building.lat.toFixed(5)],['📍 Lng',building.lng.toFixed(5)]].map(([k,v])=>(
-            <div key={k}><p className="text-[10px] text-slate-500 mb-0.5">{k}</p><p className="text-xs text-white font-medium">{v}</p></div>
-          ))}
-        </div>
-
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-3 max-h-[72vh] overflow-y-auto">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">Payment Status</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Address *</p>
+            <input type="text" value={address} onChange={e=>setAddress(e.target.value)} style={{pointerEvents:'all'}}/>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Neighborhood</p>
+              <select value={neighborhood} onChange={e=>setNeighborhood(e.target.value)} style={{pointerEvents:'all'}}>
+                <option value="Ir Yamim">Ir Yamim</option>
+                <option value="Poleg">Poleg</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Units</p>
+              <input type="number" value={units} min={1} onChange={e=>setUnits(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Manager *</p>
+              <input type="text" value={manager} onChange={e=>setManager(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Target Amount (₪)</p>
+              <input type="number" value={target} min={0} onChange={e=>setTarget(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Latitude *</p>
+              <input type="number" value={lat} step={0.00001} onChange={e=>setLat(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Longitude *</p>
+              <input type="number" value={lng} step={0.00001} onChange={e=>setLng(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Payment Status</p>
             <div className="flex gap-4">
               {Object.entries(STATUS).map(([key,cfg])=>(
                 <label key={key} className="flex items-center gap-1.5 cursor-pointer" style={{pointerEvents:'all'}}>
-                  <input type="radio" name="status" value={key} checked={status===key}
-                    onChange={()=>{setStatus(key);if(key==='paid'&&!paid)setPaid(building.target);}}
+                  <input type="radio" name="edit_status" value={key} checked={status===key}
+                    onChange={()=>{setStatus(key);if(key==='paid'&&!paid)setPaid(target);}}
                     className="w-3.5 h-3.5" style={{pointerEvents:'all'}}/>
                   <span className={`text-xs font-medium ${status===key?'text-white':'text-slate-400'}`}>{cfg.label}</span>
                 </label>
@@ -582,22 +654,17 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
 
           {status==='paid' && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">Amount Paid (₪)</p>
-              <input type="number" value={paid} min={0} max={building.target*2}
-                onChange={e=>setPaid(e.target.value)} style={{pointerEvents:'all'}}/>
-              {Number(paid)<building.target
-                ? <p className="text-[10px] text-amber-400 mt-1">⚠️ Partial — {fmt(Number(paid))} of {fmt(building.target)}</p>
-                : <p className="text-[10px] text-emerald-400 mt-1">✓ Target met — {fmt(Number(paid))}</p>}
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Amount Paid (₪)</p>
+              <input type="number" value={paid} min={0} onChange={e=>setPaid(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
           )}
 
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">Notes</p>
-            <textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)}
-              placeholder="Add notes..." style={{pointerEvents:'all',resize:'none'}}/>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Notes</p>
+            <textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} style={{pointerEvents:'all',resize:'none'}}/>
           </div>
 
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2 pt-2">
             {!confirmDel
               ? <button onClick={()=>setConfirmDel(true)} style={{pointerEvents:'all'}}
                   className="px-3 py-2.5 rounded-xl text-xs font-semibold btn-danger t300 flex items-center gap-1.5">
@@ -622,7 +689,7 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
             </button>
             <button onClick={save} style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
               className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white t300">
-              Save
+              Save Changes
             </button>
           </div>
         </div>
@@ -644,7 +711,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   const [acQuery,      setAcQuery]      = useState(initialAddress || '');
   const [acResults,    setAcResults]    = useState([]);
   const [acLoading,    setAcLoading]    = useState(false);
-  const [showAc,         setShowAc]         = useState(false);
+  const [showAc,       setShowAc]       = useState(false);
   const acTimer = useRef(null);
 
   const handleAcInput = v => {
@@ -707,7 +774,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
             <input type="text" value={acQuery} onChange={e=>handleAcInput(e.target.value)}
               onFocus={()=>acQuery.length>=2&&setShowAc(true)}
               onBlur={()=>setTimeout(()=>setShowAc(false),160)}
-              placeholder="e.g. שדרות שז׳ר 1, נתניה" style={{pointerEvents:'all'}}/>
+              placeholder="e.g. נתן יונתן 22, נתניה" style={{pointerEvents:'all'}}/>
             {showAc && (acResults.length>0 || acLoading) && (
               <div className="autocomplete-dropdown absolute left-0 right-0 top-full mt-1 z-10" style={{pointerEvents:'all'}}>
                 {acLoading && acResults.length===0 && <div className="autocomplete-item ac-loading">
@@ -726,7 +793,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
           <div>
             <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Street Name</p>
             <input type="text" value={street} onChange={e=>setStreet(e.target.value)}
-              placeholder="e.g. שדרות שז׳ר" style={{pointerEvents:'all'}}/>
+              placeholder="e.g. נתן יונתן" style={{pointerEvents:'all'}}/>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1050,7 +1117,7 @@ function App() {
     const container = map.getContainer();
 
     const handleMapClick = async e => {
-      if (!isAdmin && !addMode) return;
+      if (!isAdmin || !addMode) return;
       const clickLat = e.latlng.lat, clickLng = e.latlng.lng;
       const distM = (lat1,lng1,lat2,lng2) => {
         const dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
@@ -1145,8 +1212,7 @@ function App() {
           try { await client.from('buildings').upsert(mapBuildingToDb(b)); } catch(err) {}
         }
       }
-      // Rate limiting delay for OpenStreetMap
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 450));
     }
 
     saveBuildings(updatedList);
