@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RedLine — Netanya Community Project Payments lamama1234@gmail.com</title>
+  <title>RedLine — Netanya Community Project Payments</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -117,13 +117,6 @@
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
     .live-dot { animation: livePulse 2s infinite; }
-    
-    @keyframes warnPulse {
-      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-      70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-    }
-    .warn-dot { animation: warnPulse 2s infinite; }
   </style>
 </head>
 <body>
@@ -332,10 +325,8 @@ const PATHS = {
   trash:     'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
   lock:      'M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4',
   wifi:      'M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01',
-  wifiOff:   'M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.58 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01',
   database:  'M4 7c0-1.66 3.58-3 8-3s8 1.34 8 3v10c0 1.66-3.58 3-8 3s-8-1.34-8-3V7zM4 12c0 1.66 3.58 3 8 3s8-1.34 8-3M4 17c0 1.66 3.58 3 8 3s8-1.34 8-3',
-  settings:  'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z',
-  cloud:     'M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z',
+  settings:  'M12 15a3 3 0 100-6 3 3 0 000 6z',
 };
 const Icon = ({name,size=16,cls=''}) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
@@ -473,7 +464,7 @@ const ConfigModal = ({ onClose, onSaved }) => {
             </div>
             <div>
               <p className="text-sm font-bold text-white">Supabase Cloud Database</p>
-              <p className="text-[10px] text-slate-400">Centralized Real-Time Sync Settings</p>
+              <p className="text-[10px] text-slate-400">Centralized Real-Time Sync Settings (Admin Only)</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
@@ -901,7 +892,6 @@ function App() {
             const mapped = data.map(mapDbToBuilding);
             setBuildings(mapped);
             saveBuildings(mapped);
-            showToast('Real-time database synchronized', 'success');
           } else {
             const dbSeed = SEED.map(mapBuildingToDb);
             await client.from('buildings').upsert(dbSeed);
@@ -926,17 +916,14 @@ function App() {
                 if (prev.some(b => b.id === newBuilding.id)) return prev;
                 return [...prev, newBuilding];
               });
-              showToast(`New building added: ${payload.new.address}`, 'info');
             } else if (eventType === 'UPDATE') {
               const updated = mapDbToBuilding(payload.new);
               setBuildings(prev => prev.map(b => b.id === updated.id ? updated : b));
               setSelectedBldg(prev => (prev && prev.id === updated.id ? updated : prev));
-              showToast(`Real-time update: ${updated.address}`, 'info');
             } else if (eventType === 'DELETE') {
               const delId = payload.old.id;
               setBuildings(prev => prev.filter(b => b.id !== delId));
               setSelectedBldg(prev => (prev && prev.id === delId ? null : prev));
-              showToast('Building removed via real-time update', 'info');
             }
           })
           .subscribe(status => {
@@ -1146,7 +1133,8 @@ function App() {
             </div>
             <div>
               <p className="text-xs font-bold text-white leading-none">RedLine</p>
-              <p className="text-[9px] text-slate-500 leading-none mt-0.5">Netanya · Poleg & Ir Yamim</p>
+              <p className="text-[9px] text-slate-400 leading-none mt-1">Netanya · Poleg & Ir Yamim</p>
+              <p className="text-[8px] text-blue-400 leading-none mt-0.5">lamama1234@gmail.com</p>
             </div>
           </div>
 
@@ -1170,14 +1158,17 @@ function App() {
             </button>
           </div>
 
-          <button onClick={()=>setShowConfigModal(true)} title="Database Settings"
-            className="glass rounded-2xl px-3 py-2 flex items-center gap-2 t300 hover:bg-white/15 pointer-events-auto">
-            <div className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-400 live-dot' : isOffline ? 'bg-red-400' : 'bg-amber-400 warn-dot'}`}/>
-            <span className="text-[11px] font-medium text-slate-300 hidden md:inline">
-              {dbConnected ? (realtimeActive ? 'Cloud Realtime' : 'Cloud DB') : 'Database'}
-            </span>
-            <Icon name="settings" size={12} cls="text-slate-400 hover:text-white"/>
-          </button>
+          {/* DATABASE SETTINGS ICON - ONLY VISIBLE TO ADMIN */}
+          {isAdmin && (
+            <button onClick={()=>setShowConfigModal(true)} title="Database Settings"
+              className="glass rounded-2xl px-3 py-2 flex items-center gap-2 t300 hover:bg-white/15 pointer-events-auto">
+              <div className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-400 live-dot' : isOffline ? 'bg-red-400' : 'bg-amber-400 warn-dot'}`}/>
+              <span className="text-[11px] font-medium text-slate-300 hidden md:inline">
+                {dbConnected ? (realtimeActive ? 'Cloud Realtime' : 'Cloud DB') : 'Database'}
+              </span>
+              <Icon name="settings" size={12} cls="text-slate-400 hover:text-white"/>
+            </button>
+          )}
 
           {isAdmin && (
             <div className="flex gap-2 flex-wrap pointer-events-auto w-full pt-1">
@@ -1315,11 +1306,11 @@ function App() {
         </div>
       )}
 
-      {/* MODALS */}
-      {showConfigModal && <ConfigModal onClose={()=>setShowConfigModal(false)} onSaved={()=>showToast('Supabase settings updated','success')}/>}
+      {/* MODALS - ADMIN ONLY */}
+      {isAdmin && showConfigModal && <ConfigModal onClose={()=>setShowConfigModal(false)} onSaved={()=>showToast('Supabase settings updated','success')}/>}
       {showPwModal && <AdminPasswordModal onSuccess={()=>{ setIsAdmin(true); setShowPwModal(false); showToast('Admin mode unlocked','info'); }} onCancel={()=>setShowPwModal(false)}/>}
       {isAdmin && selectedBldg && <BuildingModal building={selectedBldg} onClose={()=>setSelectedBldg(null)} onSave={handleSave} onDelete={handleDelete}/>}
-      {showAddModal && <AddBuildingModal initialLat={addCoords?.lat} initialLng={addCoords?.lng} initialAddress={addCoords?.address} initialStreet={addCoords?.street} initialPolygon={addCoords?.polygon} onClose={()=>{ setShowAddModal(false); setAddCoords(null); }} onAdd={handleAdd}/>}
+      {isAdmin && showAddModal && <AddBuildingModal initialLat={addCoords?.lat} initialLng={addCoords?.lng} initialAddress={addCoords?.address} initialStreet={addCoords?.street} initialPolygon={addCoords?.polygon} onClose={()=>{ setShowAddModal(false); setAddCoords(null); }} onAdd={handleAdd}/>}
     </div>
   );
 }
