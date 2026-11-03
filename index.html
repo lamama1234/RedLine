@@ -635,7 +635,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   const [target,       setTarget]       = useState(5000);
   const [lat,          setLat]          = useState(initialLat ? initialLat.toFixed(6) : '');
   const [lng,          setLng]          = useState(initialLng ? initialLng.toFixed(6) : '');
-  const [acQuery,      setAcQuery]      = useState('');
+  const [acQuery,      setAcQuery]      = useState(initialAddress || '');
   const [acResults,    setAcResults]    = useState([]);
   const [acLoading,    setAcLoading]    = useState(false);
   const [showAc,       setShowAc]       = useState(false);
@@ -648,10 +648,15 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
     else { setAcResults([]); setAcLoading(false); }
   };
 
-  const pickAc = s => {
+  const pickAc = async s => {
     setAddress(s.display); setAcQuery(s.display);
     setLat(s.lat.toFixed(6)); setLng(s.lng.toFixed(6));
     setShowAc(false); setAcResults([]);
+    
+    // Auto lookup coordinates & footprint shape via reverse lookup
+    const info = await reverseLookup(s.lat, s.lng);
+    if (info.street) setStreet(info.street);
+    if (info.polygon) setBuildingPoly(info.polygon);
   };
 
   const valid = address.trim() && lat && lng && manager.trim();
@@ -681,7 +686,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
             <div>
               <p className="text-sm font-bold text-white">Add New Building</p>
               <p className="text-[10px] text-slate-500">
-                {initialLat ? `Placed at ${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : 'Fill in details below'}
+                {lat && lng ? `Location set to ${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : 'Search address or enter details below'}
               </p>
             </div>
           </div>
@@ -692,7 +697,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
 
         <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
           <div className="relative">
-            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Address *</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Address Search / Manual Entry *</p>
             <input type="text" value={acQuery} onChange={e=>handleAcInput(e.target.value)}
               onFocus={()=>acQuery.length>=2&&setShowAc(true)}
               onBlur={()=>setTimeout(()=>setShowAc(false),160)}
@@ -1063,7 +1068,7 @@ function App() {
       }
     };
 
-    if(addMode || isAdmin){
+    if(addMode){
       container.classList.add('map-add-mode');
       map.on('click',handleMapClick);
     } else {
@@ -1103,6 +1108,7 @@ function App() {
   const handleAdd = useCallback(async newB => {
     setBuildings(prev => [...prev, newB]);
     showToast(`${newB.address} — added`);
+    if (mapRef.current) mapRef.current.flyTo([newB.lat, newB.lng], 17, { duration: 1.2 });
     const client = getSupabaseClient();
     if (client && dbConnected) {
       try { await client.from('buildings').insert(mapBuildingToDb(newB)); } catch(err) {}
@@ -1172,12 +1178,18 @@ function App() {
 
           {isAdmin && (
             <div className="flex gap-2 flex-wrap pointer-events-auto w-full pt-1">
+              <button onClick={()=>{ setShowAddModal(true); setAddCoords(null); }}
+                className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 t300">
+                <Icon name="plus" size={12}/> Add Building (Manual)
+              </button>
+
               <button onClick={()=>{setAddMode(m=>!m); setAddCoords(null);}}
                 className={`rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold t300 ${addMode?'text-white shadow-lg':'glass text-emerald-400 hover:text-emerald-300'}`}
                 style={{background:addMode?'linear-gradient(135deg,#10b981,#059669)':''}}>
-                <Icon name="plus" size={12}/>
-                {addMode ? '🎯 Click map to place…' : 'Add Building'}
+                <Icon name="mapPin" size={12}/>
+                {addMode ? '🎯 Click map to place…' : 'Add via Map Selection'}
               </button>
+              
               <button onClick={()=>{
                 const hdr = ['ID','Address','Neighborhood','Units','Manager','Status','Target','Paid','Notes'];
                 const rows = buildings.map(b => [b.id,`"${b.address}"`,b.neighborhood,b.units,`"${b.manager}"`,b.status,b.target,b.paid,`"${b.notes}"`]);
