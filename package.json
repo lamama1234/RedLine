@@ -1,0 +1,26 @@
+{
+  "name": "redline-gis-netanya",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RedLine — Netanya Community Project Payments GIS Web Application (Poleg & Ir Yamim)",
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "dev": "python -m http.server 8080",
+    "build": "node -e \"console.log('Static SPA deployment bundle ready.')\""
+  },
+  "keywords": [
+    "netanya",
+    "gis",
+    "leaflet",
+    "supabase",
+    "realtime",
+    "poleg",
+    "ir-yamim",
+    "payments"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

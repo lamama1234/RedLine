@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RedLine — Netanya Community Project Payments</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="env-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+    body { margin: 0; padding: 0; overflow: hidden; background: #0f172a; }
+    #map { position: fixed; inset: 0; z-index: 0; }
+
+    .leaflet-popup-content-wrapper {
+      background: rgba(15,23,42,0.96); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px; backdrop-filter: blur(16px); color: #f1f5f9;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .leaflet-popup-tip { background: rgba(15,23,42,0.96); }
+    .leaflet-popup-content { margin: 0; padding: 0; }
+    .leaflet-container { background: #0f172a; }
+
+    .glass {
+      background: rgba(15,23,42,0.85);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+
+    .t300 { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+
+    .modal-backdrop { background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); }
+
+    .custom-tooltip {
+      background: rgba(10,15,28,0.97) !important;
+      border: 1px solid rgba(255,255,255,0.14) !important;
+      border-radius: 10px !important; color: #f1f5f9 !important;
+      font-family: 'Inter', sans-serif !important; font-size: 12px !important;
+      padding: 8px 12px !important; white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+    }
+    .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(10,15,28,0.97) !important; }
+
+    .badge-uncommitted { background: rgba(100,116,139,0.25); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); }
+    .badge-committed   { background: rgba(59,130,246,0.25); color: #93c5fd; border: 1px solid rgba(59,130,246,0.45); }
+    .badge-paid        { background: rgba(16,185,129,0.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.45); }
+
+    input[type="text"], input[type="number"], input[type="password"], select, textarea {
+      background: rgba(255,255,255,0.06) !important;
+      border: 1px solid rgba(255,255,255,0.13) !important;
+      color: #f1f5f9 !important; border-radius: 8px !important;
+      padding: 8px 12px !important; outline: none !important;
+      transition: border-color 0.2s; width: 100%;
+    }
+    input[type="text"]:focus, input[type="number"]:focus,
+    input[type="password"]:focus, select:focus, textarea:focus {
+      border-color: rgba(59,130,246,0.65) !important;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+    }
+    input::placeholder { color: rgba(148,163,184,0.45) !important; }
+    select option { background: #1e293b; color: #f1f5f9; }
+    input[type="radio"] { accent-color: #3b82f6; }
+
+    @media (max-width: 640px) {
+      .modal-panel { width: 100vw !important; max-width: 100vw !important;
+        border-radius: 20px 20px 0 0 !important; max-height: 92vh; overflow-y: auto; }
+    }
+
+    @keyframes shake {
+      10%,90% { transform: translate3d(-2px,0,0); }
+      20%,80% { transform: translate3d(4px,0,0); }
+      30%,50%,70% { transform: translate3d(-6px,0,0); }
+      40%,60% { transform: translate3d(6px,0,0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeInUp {
+      from { opacity:0; transform: translateY(8px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    .fade-in-up { animation: fadeInUp 0.25s ease-out; }
+
+    .autocomplete-dropdown {
+      background: rgba(10,15,30,0.98); backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.65); overflow: hidden;
+      max-height: 220px; overflow-y: auto;
+    }
+    .autocomplete-item {
+      padding: 9px 14px; font-size: 11px; color: #cbd5e1; cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: rgba(59,130,246,0.2); color: #fff; }
+    .autocomplete-item.ac-loading { color: #475569; font-style: italic; cursor: default; }
+
+    /* ── Add-mode crosshair cursor on map ── */
+    .map-add-mode { cursor: crosshair !important; }
+    .map-add-mode .leaflet-interactive { cursor: crosshair !important; }
+
+    /* ── Pulsing "click to place" ring ── */
+    @keyframes addPing { 0%{opacity:.7;transform:scale(1)} 100%{opacity:0;transform:scale(2.5)} }
+    .add-ping { animation: addPing 1.1s ease-out infinite; }
+
+    /* ── OSM polygon highlight ── */
+    .leaflet-interactive:focus { outline: none; }
+
+    /* ── Danger button ── */
+    .btn-danger { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .btn-danger:hover { background: rgba(239,68,68,0.22); color: #fca5a5; }
+
+    /* ── Spinner inline ── */
+    .spin { animation: spin 0.7s linear infinite; }
+    /* ── Realtime & Status indicator animations ── */
+    @keyframes livePulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .live-dot { animation: livePulse 2s infinite; }
+    
+    @keyframes warnPulse {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    .warn-dot { animation: warnPulse 2s infinite; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="root" style="position:fixed;inset:0;pointer-events:none;z-index:10;"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ─── CONSTANTS & CONFIGURATION ──────────────────────────────────────────────
+const CENTER        = [32.2758, 34.8478]; // Shazar St, Ir Yamim, Netanya
+const ZOOM          = 16;
+const STORE_KEY     = 'redline_v3';
+const SUPABASE_KEY  = 'redline_supabase_config_v1';
+const OVERPASS_BBOX = '32.265,34.830,32.295,34.860';
+
+// Dynamic Environment Config (reads window.ENV injected via .env/Vite/hosting, falls back to localStorage/defaults)
+function getEnvConfig() {
+  const runtime = window.ENV || {};
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(SUPABASE_KEY) || '{}'); } catch(e) {}
+  return {
+    url: saved.url || runtime.VITE_SUPABASE_URL || '',
+    anonKey: saved.anonKey || runtime.VITE_SUPABASE_ANON_KEY || '',
+    adminPasscode: runtime.VITE_ADMIN_PASSCODE || saved.adminPasscode || 'KavAdom1',
+  };
+}
+
+let supabaseClient = null;
+function getSupabaseClient() {
+  if (supabaseClient) return supabaseClient;
+  const cfg = getEnvConfig();
+  if (cfg.url && cfg.anonKey && window.supabase && typeof window.supabase.createClient === 'function') {
+    try {
+      supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+    } catch(e) {
+      console.warn('Could not initialize Supabase client:', e);
+    }
+  }
+  return supabaseClient;
+}
+
+// ─── STATUS CONFIG ───────────────────────────────────────────────────────────
+const STATUS = {
+  uncommitted: { label:'Uncommitted', color:'#94a3b8', fill:'#1e293b',   fillOpacity:0.18, weight:1.8, badgeClass:'badge-uncommitted' },
+  committed:   { label:'Committed',   color:'#60a5fa', fill:'#3b82f6',   fillOpacity:0.38, weight:2.5, badgeClass:'badge-committed'   },
+  paid:        { label:'Paid',        color:'#34d399', fill:'#10b981',   fillOpacity:0.52, weight:2.5, badgeClass:'badge-paid'        },
+};
+
+// ─── INITIAL SAMPLE DATA ─────────────────────────────────────────────────────
+const SEED_POLYGONS = {"b1": [[[34.84696, 32.27604], [34.84744, 32.27604], [34.84744, 32.276360000000004], [34.84696, 32.276360000000004], [34.84696, 32.27604]]], "b2": [[[34.8479776, 32.2756245], [34.8481287, 32.2755914], [34.8481834, 32.2757697], [34.8480323, 32.2758028], [34.8479776, 32.2756245]]], "b3": [[[34.84856, 32.27464], [34.849039999999995, 32.27464], [34.849039999999995, 32.27496], [34.84856, 32.27496], [34.84856, 32.27464]]], "b4": [[[34.84926, 32.273939999999996], [34.84974, 32.273939999999996], [34.84974, 32.27426], [34.84926, 32.27426], [34.84926, 32.273939999999996]]], "b5": [[[34.85006, 32.27334], [34.850539999999995, 32.27334], [34.850539999999995, 32.27366], [34.85006, 32.27366], [34.85006, 32.27334]]], "b6": [[[34.8459909, 32.2772348], [34.8460988, 32.277191], [34.8461194, 32.2771668], [34.8461194, 32.2771006], [34.8463439, 32.2771028], [34.8463465, 32.2771168], [34.8463641, 32.2771191], [34.8463952, 32.2771354], [34.8464113, 32.2771539], [34.8464221, 32.2771764], [34.8464226, 32.2771955], [34.8464204, 32.2772095], [34.8464124, 32.277223], [34.8464405, 32.2772348], [34.8463284, 32.277397], [34.8462607, 32.2773645], [34.8462165, 32.2773673], [34.8461883, 32.2773779], [34.846106, 32.2774133], [34.8460704, 32.2773521], [34.8460728, 32.2773521], [34.8460434, 32.2773066], [34.8460347, 32.2773077], [34.8459954, 32.2772465], [34.8459909, 32.2772348]]], "b7": [[[34.8449913, 32.278032], [34.8450431, 32.2779557], [34.845079, 32.2779731], [34.8451103, 32.277927], [34.8451397, 32.2779411], [34.8451548, 32.2779192], [34.8452174, 32.2779495], [34.845202, 32.277972], [34.8452196, 32.2779809], [34.8452508, 32.2779343], [34.8453069, 32.2779619], [34.845322, 32.2779394], [34.8453743, 32.2779647], [34.8453529, 32.2779961], [34.845377, 32.2780079], [34.8453232, 32.2780876], [34.8452438, 32.2780489], [34.8451845, 32.2781365], [34.8452611, 32.2781735], [34.8452425, 32.278201], [34.8452382, 32.2781988], [34.8452183, 32.278228], [34.8452242, 32.2782314], [34.8452098, 32.2782527], [34.8451842, 32.2782403], [34.8451641, 32.2782701], [34.8451092, 32.2782431], [34.8451244, 32.2782207], [34.8450728, 32.2781954], [34.8450883, 32.278173], [34.8450066, 32.2781337], [34.8450235, 32.2781084], [34.8449963, 32.2780955], [34.8450273, 32.2780494], [34.8449913, 32.278032]]], "b8": [[[34.8444836, 32.2787805], [34.8444915, 32.2787452], [34.844509, 32.2787474], [34.8445198, 32.2786896], [34.8445505, 32.2786946], [34.8445513, 32.2786913], [34.844632, 32.2787019], [34.8446333, 32.2786991], [34.8446355, 32.2786918], [34.844639, 32.2786845], [34.8446433, 32.2786789], [34.8446484, 32.278675], [34.8446569, 32.2786716], [34.844667, 32.2786677], [34.8446753, 32.278666], [34.8446129, 32.2786009], [34.8446182, 32.2785975], [34.844597, 32.278579], [34.8446574, 32.2785369], [34.8446421, 32.278524], [34.8446768, 32.2785009], [34.8446835, 32.2785066], [34.8447135, 32.2784841], [34.8447387, 32.2785094], [34.8447449, 32.2785054], [34.8447982, 32.2785633], [34.8448169, 32.2785824], [34.8448422, 32.2785661], [34.8448961, 32.2786155], [34.8449405, 32.278584], [34.8449723, 32.2786155], [34.8449449, 32.2786351], [34.8449614, 32.2786509], [34.8448747, 32.2787115], [34.844851, 32.2786862], [34.8448154, 32.2787109], [34.8448088, 32.2787143], [34.8448252, 32.2787317], [34.8448227, 32.2787396], [34.8448201, 32.2787452], [34.8448163, 32.2787536], [34.8448115, 32.278762], [34.8448071, 32.2787688], [34.8447992, 32.2787783], [34.8447907, 32.2787867], [34.8447821, 32.2787951], [34.844759, 32.2787929], [34.8447504, 32.2788333], [34.8447904, 32.2788378], [34.8447709, 32.2789282], [34.8447442, 32.2789237], [34.8447389, 32.2789535], [34.8446931, 32.2789451], [34.844705, 32.2788951], [34.8446265, 32.278885], [34.8446325, 32.2788507], [34.8445213, 32.2788344], [34.8445222, 32.278826], [34.844493, 32.278821], [34.8445, 32.2787834], [34.8444836, 32.2787805]]], "b9": [[[34.843560000000004, 32.27904], [34.84404, 32.27904], [34.84404, 32.279360000000004], [34.843560000000004, 32.279360000000004], [34.843560000000004, 32.27904]]], "b10": [[[34.8428782, 32.2799423], [34.8428803, 32.2799127], [34.8428936, 32.2798854], [34.8429071, 32.2798708], [34.8429237, 32.2798589], [34.8429525, 32.2798473], [34.842984, 32.2798434], [34.8430155, 32.2798477], [34.843044, 32.2798597], [34.8430581, 32.2798697], [34.8430768, 32.2798913], [34.8430871, 32.2799166], [34.8430881, 32.2799434], [34.8430797, 32.2799692], [34.8430626, 32.2799917], [34.8430383, 32.2800089], [34.8430051, 32.2800201], [34.8429693, 32.2800213], [34.8429358, 32.2800126], [34.8429076, 32.2799951], [34.8428876, 32.2799708], [34.8428782, 32.2799423]]], "b11": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]], "b12": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]], "b13": [[[34.84056, 32.28104], [34.84104, 32.28104], [34.84104, 32.28136], [34.84056, 32.28136], [34.84056, 32.28104]]], "b14": [[[34.8414186, 32.2817826], [34.8414406, 32.2815783], [34.8415793, 32.281589], [34.8415865, 32.2815222], [34.8417451, 32.2815344], [34.8417108, 32.281853], [34.841571, 32.2818422], [34.8415761, 32.2817947], [34.8414186, 32.2817826]]], "b15": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]], "b16": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]], "b17": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]], "b18": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]], "b19": [[[34.83896, 32.28534], [34.839439999999996, 32.28534], [34.839439999999996, 32.28566], [34.83896, 32.28566], [34.83896, 32.28534]]], "b20": [[[34.8376478, 32.2802618], [34.8385849, 32.2807509], [34.8388127, 32.2809323], [34.838774, 32.2809867], [34.83892, 32.2810845], [34.8391174, 32.281157], [34.8392247, 32.2811752], [34.8392418, 32.2811352], [34.8394647, 32.281157], [34.8405591, 32.2817305], [34.840808, 32.2819482], [34.8408125, 32.2820208], [34.8409413, 32.2820933], [34.8411642, 32.2821441], [34.8413229, 32.2821911], [34.8414302, 32.2822237], [34.8414691, 32.282184], [34.8425761, 32.2827573], [34.8426107, 32.2829131], [34.8423879, 32.2828612], [34.8422905, 32.282822], [34.841326, 32.2823364], [34.8412319, 32.2823014], [34.8411128, 32.2822803], [34.8409937, 32.2822497], [34.8409581, 32.2822376], [34.8409187, 32.2822243], [34.8408049, 32.282164], [34.8407266, 32.2821104], [34.8406426, 32.2820316], [34.8405542, 32.2819351], [34.8404711, 32.2818648], [34.840372, 32.2817978], [34.8395277, 32.2813673], [34.8394553, 32.2813399], [34.8393631, 32.2813237], [34.8392306, 32.2813056], [34.839095, 32.2812825], [34.8389522, 32.2812422], [34.8388559, 32.2811936], [34.8387212, 32.2811152], [34.8385878, 32.280995], [34.8384494, 32.2808847], [34.8383189, 32.2808123], [34.8381297, 32.2807083], [34.8380155, 32.280627], [34.8379028, 32.2805317], [34.837792, 32.2804193], [34.8376478, 32.2802618]]]};
+const SEED = [
+  { id:'b1',  address:'שדרות שז"ר 1',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:42, manager:'דוד לוי',     target:5000,  lat:32.2762, lng:34.8472, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b2',  address:'שדרות שז"ר 3',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:38, manager:'שרה כהן',    target:5000,  lat:32.2755, lng:34.8480, status:'committed',   paid:0,     notes:'צפוי לשלם בקרוב' },
+  { id:'b3',  address:'שדרות שז"ר 5',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:55, manager:'משה ישראלי', target:5000,  lat:32.2748, lng:34.8488, status:'paid',        paid:5000,  notes:'' },
+  { id:'b4',  address:'שדרות שז"ר 7',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:60, manager:'יעקב מזרחי', target:7500,  lat:32.2741, lng:34.8495, status:'paid',        paid:7500,  notes:'שולם במלואו' },
+  { id:'b5',  address:'שדרות שז"ר 9',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:36, manager:'מרים אברהם', target:5000,  lat:32.2735, lng:34.8503, status:'committed',   paid:0,     notes:'' },
+  { id:'b6',  address:'רחוב הגלים 10',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:48, manager:'רחל גולן',   target:5000,  lat:32.2770, lng:34.8460, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b7',  address:'רחוב הגלים 12',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:72, manager:'אבי שפירא',  target:10000, lat:32.2778, lng:34.8452, status:'paid',        paid:9500,  notes:'שולם חלקית' },
+  { id:'b8',  address:'רחוב הגלים 14',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:50, manager:'חיים בר',    target:7500,  lat:32.2785, lng:34.8445, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b9',  address:'שדרות ים התיכון 20',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:68,manager:'נעמי גרין', target:10000, lat:32.2792, lng:34.8438, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b10', address:'שדרות ים התיכון 22',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:44,manager:'טלי שמש',  target:5000,  lat:32.2798, lng:34.8430, status:'committed',   paid:0,     notes:'' },
+  { id:'b11', address:'רחוב פולג 2',      street:'רחוב פולג',     neighborhood:'Poleg',    units:40, manager:'אורן בן דוד',target:5000, lat:32.2820, lng:34.8400, status:'paid',        paid:5000,  notes:'' },
+  { id:'b12', address:'רחוב פולג 4',      street:'רחוב פולג',     neighborhood:'Poleg',    units:35, manager:'ליאת כץ',   target:5000,  lat:32.2830, lng:34.8395, status:'committed',   paid:0,     notes:'' },
+  { id:'b13', address:'שדרות ויצמן 45',   street:'שדרות ויצמן',   neighborhood:'Poleg',    units:88, manager:'רוני פרץ',  target:10000, lat:32.2812, lng:34.8408, status:'paid',        paid:10000, notes:'שולם במלואו ובזמן' },
+  { id:'b14', address:'שדרות ויצמן 47',   street:'שדרות ויצמן',   neighborhood:'Poleg',    units:64, manager:'דינה לפיד', target:7500,  lat:32.2818, lng:34.8415, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b15', address:'שדרות ויצמן 49',   street:'שדרות ויצמן',   neighborhood:'Poleg',    units:52, manager:'עמי רוזן',  target:7500,  lat:32.2825, lng:34.8420, status:'committed',   paid:0,     notes:'הובטח תשלום לחודש הבא' },
+  { id:'b16', address:'רחוב אלון 3',      street:'רחוב אלון',     neighborhood:'Poleg',    units:30, manager:'יפה עוז',   target:5000,  lat:32.2835, lng:34.8380, status:'paid',        paid:5000,  notes:'' },
+  { id:'b17', address:'רחוב אלון 5',      street:'רחוב אלון',     neighborhood:'Poleg',    units:28, manager:'בן ציון',   target:5000,  lat:32.2845, lng:34.8375, status:'uncommitted', paid:0,     notes:'' },
+  { id:'b18', address:'רחוב הדקל 1',      street:'רחוב הדקל',     neighborhood:'Poleg',    units:46, manager:'שלומית בר', target:5000,  lat:32.2850, lng:34.8385, status:'committed',   paid:0,     notes:'' },
+  { id:'b19', address:'רחוב הדקל 3',      street:'רחוב הדקל',     neighborhood:'Poleg',    units:33, manager:'נחום ורד',  target:5000,  lat:32.2855, lng:34.8392, status:'paid',        paid:4500,  notes:'חסר ₪500' },
+  { id:'b20', address:'רחוב פולג 6',      street:'רחוב פולג',     neighborhood:'Poleg',    units:56, manager:'גיל יחיאל', target:7500,  lat:32.2840, lng:34.8388, status:'uncommitted', paid:0,     notes:'' },
+];
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const fmt = n => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(n);
+const fmtPct = n => `${Math.min(100,Math.round(n))}%`;
+// Database <-> Client schema adapters
+function mapDbToBuilding(row) {
+  return {
+    id: row.id,
+    address: row.address,
+    street: row.street || row.address,
+    neighborhood: row.neighborhood || 'Ir Yamim',
+    units: row.units || 40,
+    manager: row.manager || '',
+    status: row.status || 'uncommitted',
+    target: Number(row.target_ils !== undefined ? row.target_ils : (row.target || 5000)),
+    paid: Number(row.paid_ils !== undefined ? row.paid_ils : (row.paid || 0)),
+    lat: Number(row.lat),
+    lng: Number(row.lng),
+    polygon: row.polygon || (typeof SEED_POLYGONS !== 'undefined' ? SEED_POLYGONS[row.id] : null) || null,
+    notes: row.notes || '',
+    updated_at: row.updated_at || new Date().toISOString()
+  };
+}
+
+function mapBuildingToDb(b) {
+  return {
+    id: b.id,
+    address: b.address,
+    street: b.street || b.address,
+    neighborhood: b.neighborhood || 'Ir Yamim',
+    units: Number(b.units || 40),
+    manager: b.manager || '',
+    status: b.status || 'uncommitted',
+    target_ils: Number(b.target || 0),
+    paid_ils: Number(b.paid || 0),
+    lat: Number(b.lat),
+    lng: Number(b.lng),
+    polygon: b.polygon || null,
+    notes: b.notes || '',
+    updated_at: new Date().toISOString()
+  };
+}
+
+const uid = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+
+function loadBuildings() {
+  try {
+    const r = localStorage.getItem(STORE_KEY);
+    if (r) {
+      const data = JSON.parse(r);
+      return data.map(b => b.polygon ? b : { ...b, polygon: SEED_POLYGONS[b.id] || null });
+    }
+  } catch {}
+  return SEED.map(b => ({ ...b, polygon: SEED_POLYGONS[b.id] || null }));
+}
+function saveBuildings(data) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch {}
+}
+
+function exportCSV(buildings) {
+  const hdr = ['ID','Address','Neighborhood','Street','Units','Manager','Status','Target (ILS)','Paid (ILS)','Lat','Lng','Notes'];
+  const rows = buildings.map(b => [b.id,`"${b.address}"`,b.neighborhood,`"${b.street}"`,b.units,`"${b.manager}"`,b.status,b.target,b.paid,b.lat,b.lng,`"${b.notes}"`]);
+  const csv = [hdr,...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = `redline_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ─── NOMINATIM ───────────────────────────────────────────────────────────────
+// ─── REVERSE GEOCODE WITH BUILDING POLYGON ─────────────────────────────────────
+async function reverseLookup(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&polygon_geojson=1&accept-language=he,en`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'he,en' } });
+    const data = await res.json();
+    const parts = (data.display_name || '').split(',').map(s => s.trim());
+    const address = parts.slice(0, 3).join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const street = (data.address && (data.address.road || data.address.pedestrian || data.address.suburb)) || parts[0] || '';
+    let polygon = null;
+    if (data.geojson && (data.geojson.type === 'Polygon' || data.geojson.type === 'MultiPolygon')) {
+      polygon = data.geojson.coordinates;
+    }
+    return { address, street, polygon };
+  } catch (e) {
+    return { address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, street: '', polygon: null };
+  }
+}
+
+async function nominatim(query) {
+  if (!query || query.length < 2) return [];
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query+' נתניה')}&format=json&limit=6&countrycodes=il&accept-language=he,en&bounded=1&viewbox=34.82,32.31,34.88,32.25`;
+    const data = await (await fetch(url,{headers:{'Accept-Language':'he,en'}})).json();
+    return data.map(x=>({display:x.display_name.split(',').slice(0,3).join(', '),lat:+x.lat,lng:+x.lon}));
+  } catch { return []; }
+}
+
+// ─── OVERPASS — fetch OSM building polygons ───────────────────────────────────
+async function fetchOSMBuildings() {
+  try {
+    const query = `[out:json][timeout:25];(way["building"](${OVERPASS_BBOX});relation["building"](${OVERPASS_BBOX}););out body;>;out skel qt;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter',{
+      method:'POST', body:'data='+encodeURIComponent(query),
+      headers:{'Content-Type':'application/x-www-form-urlencoded'}
+    });
+    const json = await res.json();
+
+    // Build node lookup
+    const nodes = {};
+    json.elements.forEach(e => { if(e.type==='node') nodes[e.id]={lat:e.lat,lng:e.lon}; });
+
+    // Build GeoJSON features for ways
+    const features = [];
+    json.elements.forEach(e => {
+      if(e.type==='way' && e.nodes) {
+        const coords = e.nodes.map(nid => nodes[nid]).filter(Boolean);
+        if(coords.length < 3) return;
+        // close ring
+        if(coords[0].lat !== coords[coords.length-1].lat) coords.push(coords[0]);
+        // GeoJSON lon,lat order
+        const ring = coords.map(c=>[c.lng,c.lat]);
+        // Centroid for snapping
+        const cLat = coords.reduce((s,c)=>s+c.lat,0)/coords.length;
+        const cLng = coords.reduce((s,c)=>s+c.lng,0)/coords.length;
+        features.push({
+          type:'Feature',
+          properties:{ osmId: e.id, centLat: cLat, centLng: cLng },
+          geometry:{ type:'Polygon', coordinates:[ring] }
+        });
+      }
+    });
+    return features;
+  } catch(e) {
+    console.warn('Overpass fetch failed:', e);
+    return [];
+  }
+}
+
+// ─── ICONS ───────────────────────────────────────────────────────────────────
+const PATHS = {
+  building2: 'M4 22V6a2 2 0 012-2h12a2 2 0 012 2v16M2 22h20M10 10h4M10 14h4M10 18h4',
+  shield:    'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  search:    'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+  x:         'M18 6L6 18M6 6l12 12',
+  check:     'M20 6L9 17l-5-5',
+  download:  'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
+  refresh:   'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15',
+  trending:  'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+  target:    'M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 18a6 6 0 100-12 6 6 0 000 12zM12 14a2 2 0 100-4 2 2 0 000 4z',
+  eye:       'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z',
+  info:      'M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 16v-4M12 8h.01',
+  chevron:   'M6 9l6 6 6-6',
+  mapPin:    'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0zM12 10a1 1 0 100-2 1 1 0 000 2z',
+  plus:      'M12 5v14M5 12h14',
+  trash:     'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
+  lock:      'M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4',
+  layers:    'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  wifi:      'M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01',
+  wifiOff:   'M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.58 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01',
+  database:  'M4 7c0-1.66 3.58-3 8-3s8 1.34 8 3v10c0 1.66-3.58 3-8 3s-8-1.34-8-3V7zM4 12c0 1.66 3.58 3 8 3s8-1.34 8-3M4 17c0 1.66 3.58 3 8 3s8-1.34 8-3',
+  settings:  'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z',
+  cloud:     'M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z',
+};
+const Icon = ({name,size=16,cls=''}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+       fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={cls}>
+    {(PATHS[name]||'').split('M').filter(Boolean).map((d,i)=><path key={i} d={'M'+d}/>)}
+  </svg>
+);
+
+// ─── STAT CARD ───────────────────────────────────────────────────────────────
+const StatCard = ({label,value,icon,color,sub}) => (
+  <div className="glass rounded-2xl p-3 flex flex-col gap-1 min-w-[118px]">
+    <div className="flex items-center gap-1.5 mb-0.5">
+      <span style={{color}} className="opacity-80"><Icon name={icon} size={13}/></span>
+      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{label}</span>
+    </div>
+    <span className="text-[15px] font-bold text-white leading-none">{value}</span>
+    {sub && <span className="text-[10px] text-slate-500">{sub}</span>}
+  </div>
+);
+
+const Badge = ({status}) => {
+  const s = STATUS[status];
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.badgeClass}`}>{s.label}</span>;
+};
+
+// ─── ADMIN PASSWORD MODAL ────────────────────────────────────────────────────
+const AdminPasswordModal = ({onSuccess, onCancel}) => {
+  const [pw, setPw] = useState('');
+  const [err, setErr] = useState(false);
+  const [shake, setShake] = useState(false);
+  const ref = useRef();
+  useEffect(()=>{ ref.current?.focus(); },[]);
+
+  const submit = e => {
+    e.preventDefault();
+    if(pw === getEnvConfig().adminPasscode) { onSuccess(); }
+    else {
+      setErr(true); setShake(true); setPw('');
+      setTimeout(()=>setShake(false), 600);
+    }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+         onClick={e=>e.target===e.currentTarget&&onCancel()} style={{pointerEvents:'all'}}>
+      <div className="glass modal-panel w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden fade-in-up"
+           style={{border:'1px solid rgba(255,255,255,0.15)',animation: shake?'shake 0.5s cubic-bezier(.36,.07,.19,.97)':''}}>
+        <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}>
+              <Icon name="lock" size={14} cls="text-white"/>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Admin Access</p>
+              <p className="text-[10px] text-slate-500">Enter password to continue</p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
+            <Icon name="x" size={16}/>
+          </button>
+        </div>
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Password</p>
+            <input ref={ref} type="password" value={pw}
+              onChange={e=>{setPw(e.target.value);setErr(false);}}
+              placeholder="Enter admin password..."
+              style={{pointerEvents:'all',letterSpacing:pw?'0.18em':'normal'}}/>
+            {err && <p className="text-[11px] text-red-400 mt-1.5 flex items-center gap-1"><Icon name="x" size={11}/> Incorrect password.</p>}
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onCancel} style={{pointerEvents:'all'}}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
+              Cancel
+            </button>
+            <button type="submit" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white t300">
+              Unlock
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ─── SUPABASE DATABASE CONFIG MODAL ──────────────────────────────────────────
+const ConfigModal = ({ onClose, onSaved }) => {
+  const current = getEnvConfig();
+  const [url, setUrl] = useState(current.url || '');
+  const [anonKey, setAnonKey] = useState(current.anonKey || '');
+  const [adminPasscode, setAdminPasscode] = useState(current.adminPasscode || 'KavAdom1');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  const testConnection = async () => {
+    if (!url || !anonKey) {
+      setTestResult({ ok: false, msg: 'Please provide both Supabase URL and Anon Key' });
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      if (!window.supabase) throw new Error('Supabase library not loaded yet');
+      const client = window.supabase.createClient(url.trim(), anonKey.trim());
+      const { data, error } = await client.from('buildings').select('id').limit(1);
+      if (error) throw error;
+      setTestResult({ ok: true, msg: 'Connected successfully to Supabase buildings table!' });
+    } catch(err) {
+      setTestResult({ ok: false, msg: err.message || 'Connection failed' });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = () => {
+    const config = {
+      url: url.trim(),
+      anonKey: anonKey.trim(),
+      adminPasscode: adminPasscode.trim() || 'KavAdom1'
+    };
+    try {
+      localStorage.setItem(SUPABASE_KEY, JSON.stringify(config));
+    } catch(e) {}
+    supabaseClient = null;
+    onSaved(config);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+         onClick={e => e.target === e.currentTarget && onClose()} style={{pointerEvents:'all'}}>
+      <div className="glass modal-panel w-full max-w-md rounded-2xl shadow-2xl overflow-hidden fade-in-up"
+           style={{border:'1px solid rgba(255,255,255,0.18)'}}>
+        <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+              <Icon name="database" size={15} cls="text-white"/>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Supabase Cloud Database</p>
+              <p className="text-[10px] text-slate-400">Centralized Real-Time Sync Settings</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
+            <Icon name="x" size={16}/>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3.5 max-h-[75vh] overflow-y-auto">
+          <div>
+            <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
+              Supabase Project URL (VITE_SUPABASE_URL)
+            </label>
+            <input type="text" value={url} onChange={e=>setUrl(e.target.value)}
+              placeholder="https://your-project-id.supabase.co" style={{pointerEvents:'all'}}/>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
+              Supabase Anon Public API Key (VITE_SUPABASE_ANON_KEY)
+            </label>
+            <input type="text" value={anonKey} onChange={e=>setAnonKey(e.target.value)}
+              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style={{pointerEvents:'all'}}/>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
+              Admin Passcode (VITE_ADMIN_PASSCODE)
+            </label>
+            <input type="text" value={adminPasscode} onChange={e=>setAdminPasscode(e.target.value)}
+              placeholder="Default: KavAdom1" style={{pointerEvents:'all'}}/>
+          </div>
+
+          {testResult && (
+            <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${testResult.ok ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'}`}>
+              <Icon name={testResult.ok ? 'check' : 'x'} size={14}/>
+              <span>{testResult.msg}</span>
+            </div>
+          )}
+
+          <div className="pt-1 flex gap-2">
+            <button type="button" onClick={testConnection} disabled={testing || !url || !anonKey}
+              className="flex-1 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              style={{pointerEvents:'all'}}>
+              {testing ? <div className="w-3 h-3 rounded-full border-2 border-slate-400 border-t-white spin"/> : <Icon name="wifi" size={13}/>}
+              {testing ? 'Testing...' : 'Test Connection'}
+            </button>
+            <button type="button" onClick={handleSave}
+              className="flex-1 py-2 rounded-xl text-xs font-semibold text-white t300"
+              style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}>
+              Save & Apply
+            </button>
+          </div>
+
+          <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-[11px] text-slate-400 space-y-1">
+            <p className="font-semibold text-slate-300">💡 Free-Tier Supabase Setup</p>
+            <p>1. Create a free project at <span className="text-blue-400">supabase.com</span></p>
+            <p>2. In SQL Editor, run the script from <code className="text-emerald-400">supabase-schema.sql</code></p>
+            <p>3. Paste your Project URL and Anon API key above (or configure via <code className="text-sky-400">.env</code> in Vercel/Netlify)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── BUILDING EDIT MODAL ─────────────────────────────────────────────────────
+const BuildingModal = ({building, onClose, onSave, onDelete}) => {
+  const [status, setStatus]   = useState(building.status);
+  const [paid,   setPaid]     = useState(building.paid || building.target);
+  const [notes,  setNotes]    = useState(building.notes || '');
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const save = () => {
+    onSave({...building, status, paid: status==='paid' ? Number(paid) : 0, notes});
+    onClose();
+  };
+  const del = () => { onDelete(building.id); onClose(); };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop"
+         onClick={e=>e.target===e.currentTarget&&onClose()} style={{pointerEvents:'all'}}>
+      <div className="glass modal-panel w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden fade-in-up"
+           style={{border:'1px solid rgba(255,255,255,0.13)'}}>
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-white/10">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Icon name="building2" size={15} cls="text-blue-400"/>
+              <h2 className="text-sm font-bold text-white">{building.address}</h2>
+            </div>
+            <Badge status={building.status}/>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
+            <Icon name="x" size={17}/>
+          </button>
+        </div>
+
+        {/* Meta */}
+        <div className="p-4 grid grid-cols-2 gap-3 border-b border-white/10">
+          {[['🏘️ Neighborhood',building.neighborhood],['🏠 Units',`${building.units} apts`],['👤 Manager',building.manager],['🎯 Target',fmt(building.target)],['📍 Lat',building.lat.toFixed(5)],['📍 Lng',building.lng.toFixed(5)]].map(([k,v])=>(
+            <div key={k}><p className="text-[10px] text-slate-500 mb-0.5">{k}</p><p className="text-xs text-white font-medium">{v}</p></div>
+          ))}
+        </div>
+
+        {/* Status */}
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">Payment Status</p>
+            <div className="flex gap-4">
+              {Object.entries(STATUS).map(([key,cfg])=>(
+                <label key={key} className="flex items-center gap-1.5 cursor-pointer" style={{pointerEvents:'all'}}>
+                  <input type="radio" name="status" value={key} checked={status===key}
+                    onChange={()=>{setStatus(key);if(key==='paid'&&!paid)setPaid(building.target);}}
+                    className="w-3.5 h-3.5" style={{pointerEvents:'all'}}/>
+                  <span className={`text-xs font-medium ${status===key?'text-white':'text-slate-400'}`}>{cfg.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {status==='paid' && (
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">Amount Paid (₪)</p>
+              <input type="number" value={paid} min={0} max={building.target*2}
+                onChange={e=>setPaid(e.target.value)} style={{pointerEvents:'all'}}/>
+              {Number(paid)<building.target
+                ? <p className="text-[10px] text-amber-400 mt-1">⚠️ Partial — {fmt(Number(paid))} of {fmt(building.target)}</p>
+                : <p className="text-[10px] text-emerald-400 mt-1">✓ Target met — {fmt(Number(paid))}</p>}
+            </div>
+          )}
+
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">Notes</p>
+            <textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)}
+              placeholder="Add notes..." style={{pointerEvents:'all',resize:'none'}}/>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            {/* Delete */}
+            {!confirmDel
+              ? <button onClick={()=>setConfirmDel(true)} style={{pointerEvents:'all'}}
+                  className="px-3 py-2.5 rounded-xl text-xs font-semibold btn-danger t300 flex items-center gap-1.5">
+                  <Icon name="trash" size={13}/> Delete
+                </button>
+              : <button onClick={del} style={{pointerEvents:'all'}}
+                  className="px-3 py-2.5 rounded-xl text-xs font-semibold text-white t300 flex items-center gap-1.5"
+                  style={{background:'#dc2626',pointerEvents:'all'}}>
+                  <Icon name="trash" size={13}/> Confirm Delete
+                </button>
+            }
+            {confirmDel && (
+              <button onClick={()=>setConfirmDel(false)} style={{pointerEvents:'all'}}
+                className="px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/10 t300">
+                Cancel
+              </button>
+            )}
+            <div className="flex-1"/>
+            <button onClick={onClose} style={{pointerEvents:'all'}}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
+              Cancel
+            </button>
+            <button onClick={save} style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white t300">
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── ADD BUILDING MODAL ──────────────────────────────────────────────────────
+const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet, initialPolygon, onClose, onAdd}) => {
+  const [address,      setAddress]      = useState(initialAddress || '');
+  const [street,       setStreet]       = useState(initialStreet || '');
+  const [buildingPoly, setBuildingPoly] = useState(initialPolygon || null);
+  const [neighborhood, setNeighborhood] = useState('Ir Yamim');
+  const [units,        setUnits]        = useState(40);
+  const [manager,      setManager]      = useState('');
+  const [target,       setTarget]       = useState(5000);
+  const [lat,          setLat]          = useState(initialLat ? initialLat.toFixed(6) : '');
+  const [lng,          setLng]          = useState(initialLng ? initialLng.toFixed(6) : '');
+  const [acQuery,      setAcQuery]      = useState('');
+  const [acResults,    setAcResults]    = useState([]);
+  const [acLoading,    setAcLoading]    = useState(false);
+  const [showAc,       setShowAc]       = useState(false);
+  const acTimer = useRef(null);
+
+  const handleAcInput = v => {
+    setAcQuery(v); setAddress(v); setShowAc(true);
+    clearTimeout(acTimer.current);
+    if(v.length>=2){ setAcLoading(true); acTimer.current=setTimeout(async()=>{ setAcResults(await nominatim(v)); setAcLoading(false); },380); }
+    else { setAcResults([]); setAcLoading(false); }
+  };
+
+  const pickAc = s => {
+    setAddress(s.display); setAcQuery(s.display);
+    setLat(s.lat.toFixed(6)); setLng(s.lng.toFixed(6));
+    setShowAc(false); setAcResults([]);
+  };
+
+  const valid = address.trim() && lat && lng && manager.trim();
+
+  const save = () => {
+    if(!valid) return;
+    onAdd({
+      id: uid(), address: address.trim(), street: street.trim() || address.trim(),
+      neighborhood, units: Number(units), manager: manager.trim(),
+      target: Number(target), lat: parseFloat(lat), lng: parseFloat(lng),
+      polygon: buildingPoly,
+      status: 'uncommitted', paid: 0, notes: '',
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop"
+         onClick={e=>e.target===e.currentTarget&&onClose()} style={{pointerEvents:'all'}}>
+      <div className="glass modal-panel w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden fade-in-up"
+           style={{border:'1px solid rgba(255,255,255,0.14)'}}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>
+              <Icon name="plus" size={15} cls="text-white"/>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Add New Building</p>
+              <p className="text-[10px] text-slate-500">
+                {initialLat ? `Placed at ${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : 'Fill in the details below'}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
+            <Icon name="x" size={17}/>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+          {/* Address with autocomplete */}
+          <div className="relative">
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Address *</p>
+            <input type="text" value={acQuery} onChange={e=>handleAcInput(e.target.value)}
+              onFocus={()=>acQuery.length>=2&&setShowAc(true)}
+              onBlur={()=>setTimeout(()=>setShowAc(false),160)}
+              placeholder="e.g. שדרות שז׳ר 1, נתניה" style={{pointerEvents:'all'}}/>
+            {showAc && (acResults.length>0 || acLoading) && (
+              <div className="autocomplete-dropdown absolute left-0 right-0 top-full mt-1 z-10" style={{pointerEvents:'all'}}>
+                {acLoading && acResults.length===0 && <div className="autocomplete-item ac-loading">
+                  <div className="w-3 h-3 rounded-full border-2 border-slate-700 border-t-blue-400 spin flex-shrink-0"/>Searching...
+                </div>}
+                {acResults.map((s,i)=>(
+                  <div key={i} className="autocomplete-item" onMouseDown={()=>pickAc(s)}>
+                    <Icon name="mapPin" size={10} cls="text-blue-400 flex-shrink-0"/>
+                    <span className="truncate">{s.display}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Street */}
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Street Name</p>
+            <input type="text" value={street} onChange={e=>setStreet(e.target.value)}
+              placeholder="e.g. שדרות שז׳ר" style={{pointerEvents:'all'}}/>
+          </div>
+
+          {/* Neighborhood + Units row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Neighborhood</p>
+              <select value={neighborhood} onChange={e=>setNeighborhood(e.target.value)} style={{pointerEvents:'all'}}>
+                <option value="Ir Yamim">Ir Yamim</option>
+                <option value="Poleg">Poleg</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Units</p>
+              <input type="number" value={units} min={1} max={500}
+                onChange={e=>setUnits(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          {/* Manager + Target row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Building Manager *</p>
+              <input type="text" value={manager} onChange={e=>setManager(e.target.value)}
+                placeholder="ועד בית" style={{pointerEvents:'all'}}/>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Target Amount (₪)</p>
+              <input type="number" value={target} min={0}
+                onChange={e=>setTarget(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          {/* Coordinates */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Latitude *</p>
+              <input type="number" value={lat} step={0.00001}
+                onChange={e=>setLat(e.target.value)} placeholder="32.xxxx" style={{pointerEvents:'all'}}/>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Longitude *</p>
+              <input type="number" value={lng} step={0.00001}
+                onChange={e=>setLng(e.target.value)} placeholder="34.xxxx" style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+          {!initialLat && (
+            <p className="text-[10px] text-blue-400 flex items-center gap-1">
+              <Icon name="info" size={11}/> Tip: Close this and click on the map to auto-fill coordinates.
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose} style={{pointerEvents:'all'}}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
+              Cancel
+            </button>
+            <button onClick={save} disabled={!valid} style={{
+              background: valid ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,0.06)',
+              pointerEvents:'all'
+            }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white t300 disabled:opacity-40">
+              Add Building
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── SIDEBAR LIST ────────────────────────────────────────────────────────────
+const SidebarList = ({buildings, filterStatus, searchQ, isAdmin, onBuildingClick, onClose}) => {
+  const filtered = useMemo(()=>buildings.filter(b=>{
+    const ms = !searchQ || b.address.toLowerCase().includes(searchQ.toLowerCase()) || b.street.toLowerCase().includes(searchQ.toLowerCase());
+    const mf = !filterStatus || b.status===filterStatus;
+    return ms && mf;
+  }),[buildings,filterStatus,searchQ]);
+
+  return (
+    <div className="glass rounded-2xl overflow-hidden" style={{maxHeight:'calc(100vh - 330px)',display:'flex',flexDirection:'column'}}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Buildings ({filtered.length})</span>
+        <button onClick={onClose} className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-white t300" style={{pointerEvents:'all'}}>
+          <Icon name="x" size={13}/>
+        </button>
+      </div>
+      <div style={{overflowY:'auto',flex:1}}>
+        {filtered.length===0 && <div className="p-5 text-center text-slate-500 text-xs">No buildings match.</div>}
+        {filtered.map(b=>(
+          <div key={b.id} onClick={()=>isAdmin&&onBuildingClick(b)}
+            className={`px-4 py-3 border-b border-white/5 flex items-start justify-between gap-2 ${isAdmin?'cursor-pointer hover:bg-white/5':''} t300`}
+            style={{pointerEvents:'all'}}>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{b.address}</p>
+              <p className="text-[10px] text-slate-500">{b.neighborhood} · {b.units} units</p>
+              {b.status==='paid' && <p className="text-[10px] text-emerald-400 mt-0.5">{fmt(b.paid)} paid</p>}
+            </div>
+            <Badge status={b.status}/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── MAIN APP ────────────────────────────────────────────────────────────────
+function App() {
+  const [buildings,      setBuildings]      = useState(loadBuildings);
+  const [isAdmin,        setIsAdmin]        = useState(false);
+  const [showPwModal,    setShowPwModal]    = useState(false);
+  const [showConfigModal,setShowConfigModal]= useState(false);
+  const [selectedBldg,   setSelectedBldg]   = useState(null);  // for edit
+  const [addMode,        setAddMode]        = useState(false);  // map-click-to-add active
+  const [addCoords,      setAddCoords]      = useState(null);   // {lat,lng} from map click
+  const [showAddModal,   setShowAddModal]   = useState(false);
+  const [searchQ,        setSearchQ]        = useState('');
+  const [acResults,      setAcResults]      = useState([]);
+  const [acLoading,      setAcLoading]      = useState(false);
+  const [showAc,         setShowAc]         = useState(false);
+  const [filterStatus,   setFilterStatus]   = useState('');
+  const [showList,       setShowList]       = useState(false);
+  const [toast,          setToast]          = useState(null);
+  const [osmFeatures,    setOsmFeatures]    = useState([]);
+  const [osmLoading,     setOsmLoading]     = useState(false);
+  
+  // Realtime & Cloud sync state
+  const [dbLoading,      setDbLoading]      = useState(false);
+  const [dbConnected,    setDbConnected]    = useState(false);
+  const [isOffline,      setIsOffline]      = useState(!navigator.onLine);
+  const [realtimeActive, setRealtimeActive] = useState(false);
+
+  const mapRef       = useRef(null);
+  const markersRef   = useRef({});       // circle/label markers per building id
+  const osmLayerRef  = useRef(null);     // L.geoJSON layer for OSM polygons
+  const tempMarkerRef = useRef(null);    // pulsing pin during add-mode
+  const toastTimer   = useRef(null);
+  const acTimer      = useRef(null);
+  const searchRef    = useRef(null);
+
+  const showToast = useCallback((msg,type='success')=>{
+    setToast({msg,type});
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(()=>setToast(null), 3200);
+  },[]);
+
+  const stats = useMemo(()=>{
+    const total     = buildings.reduce((s,b)=>s+b.target,0);
+    const committed = buildings.filter(b=>b.status==='committed').reduce((s,b)=>s+b.target,0);
+    const paid      = buildings.filter(b=>b.status==='paid').reduce((s,b)=>s+b.paid,0);
+    const pPaid     = total>0?(paid/total)*100:0;
+    const pComm     = total>0?((paid+committed)/total)*100:0;
+    return { total, committed, paid, pPaid, pComm,
+      nPaid:       buildings.filter(b=>b.status==='paid').length,
+      nCommitted:  buildings.filter(b=>b.status==='committed').length,
+      nUncommitted:buildings.filter(b=>b.status==='uncommitted').length };
+  },[buildings]);
+
+  // ── Online / Offline Network detection ─────────────────────────────────────
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // ── Supabase Initial Fetch & Multi-User Realtime Subscription ──────────────
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) {
+      setDbConnected(false);
+      setRealtimeActive(false);
+      return;
+    }
+
+    let channel = null;
+    let isMounted = true;
+
+    async function initSupabase() {
+      setDbLoading(true);
+      try {
+        const { data, error } = await client.from('buildings').select('*').order('id', { ascending: true });
+        if (error) throw error;
+        if (isMounted) {
+          if (data && data.length > 0) {
+            const mapped = data.map(mapDbToBuilding);
+            setBuildings(mapped);
+            saveBuildings(mapped);
+            showToast('Real-time database synchronized', 'success');
+          } else {
+            // First time DB setup: seed default buildings to Supabase
+            const dbSeed = SEED.map(mapBuildingToDb);
+            await client.from('buildings').upsert(dbSeed);
+          }
+          setDbConnected(true);
+        }
+      } catch (err) {
+        console.warn('Supabase fetch notice:', err.message);
+        if (isMounted) setDbConnected(false);
+      } finally {
+        if (isMounted) setDbLoading(false);
+      }
+
+      // Establish Postgres Changes Realtime broadcast listener
+      try {
+        channel = client
+          .channel('public:buildings')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'buildings' }, payload => {
+            if (!isMounted) return;
+            const eventType = payload.eventType;
+            if (eventType === 'INSERT') {
+              const newBuilding = mapDbToBuilding(payload.new);
+              setBuildings(prev => {
+                if (prev.some(b => b.id === newBuilding.id)) return prev;
+                return [...prev, newBuilding];
+              });
+              showToast(`New building added: ${payload.new.address}`, 'info');
+            } else if (eventType === 'UPDATE') {
+              const updated = mapDbToBuilding(payload.new);
+              setBuildings(prev => prev.map(b => b.id === updated.id ? updated : b));
+              // Also update selected building in modal if open
+              setSelectedBldg(prev => (prev && prev.id === updated.id ? updated : prev));
+              showToast(`Real-time update: ${updated.address} (${updated.status.toUpperCase()})`, 'info');
+            } else if (eventType === 'DELETE') {
+              const delId = payload.old.id;
+              setBuildings(prev => prev.filter(b => b.id !== delId));
+              setSelectedBldg(prev => (prev && prev.id === delId ? null : prev));
+              showToast('Building removed via real-time update', 'info');
+            }
+          })
+          .subscribe(status => {
+            if (isMounted) {
+              setRealtimeActive(status === 'SUBSCRIBED');
+              if (status === 'SUBSCRIBED') setDbConnected(true);
+            }
+          });
+      } catch (err) {
+        console.warn('Realtime subscription error:', err);
+      }
+    }
+
+    initSupabase();
+
+    return () => {
+      isMounted = false;
+      if (channel && client) client.removeChannel(channel);
+    };
+  }, []);
+
+  // ── Init Map ──────────────────────────────────────────────────────────────
+  useEffect(()=>{
+    const map = L.map('map',{center:CENTER, zoom:ZOOM, minZoom:13, maxZoom:18, zoomControl:false, attributionControl:false});
+
+    // Open source satellite imagery from Esri World Imagery (No API key required)
+    // Strictly capped at zoom 18 so satellite tiles are always available and never blank
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      minZoom: 13,
+      maxZoom: 18,
+      maxNativeZoom: 18,
+      attribution: '© <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
+    }).addTo(map);
+
+    L.control.zoom({position:'bottomright'}).addTo(map);
+    L.control.attribution({position:'bottomleft', prefix:'© <a href="https://www.esri.com">Esri</a> · <a href="https://osm.org">OSM</a>'}).addTo(map);
+
+    mapRef.current = map;
+    return ()=>map.remove();
+  },[]);
+
+  // ── Fetch OSM building polygons ───────────────────────────────────────────
+  useEffect(()=>{
+    setOsmLoading(true);
+    fetchOSMBuildings().then(features=>{
+      setOsmFeatures(features);
+      setOsmLoading(false);
+    });
+  },[]);
+
+  // ── Render actual building footprints coloured by payment status ──────────
+  useEffect(()=>{
+    const map = mapRef.current;
+    if(!map) return;
+
+    if(osmLayerRef.current) { map.removeLayer(osmLayerRef.current); osmLayerRef.current=null; }
+
+    const buildingFeatures = [];
+    buildings.forEach(b => {
+      let coords = b.polygon;
+      if (!coords) {
+        // Fallback realistic ~25m building footprint if polygon not downloaded
+        const dlat = 0.00016, dlng = 0.00024;
+        coords = [[[b.lng - dlng, b.lat - dlat],
+                   [b.lng + dlng, b.lat - dlat],
+                   [b.lng + dlng, b.lat + dlat],
+                   [b.lng - dlng, b.lat + dlat],
+                   [b.lng - dlng, b.lat - dlat]]];
+      }
+      buildingFeatures.push({
+        type: 'Feature',
+        properties: { buildingId: b.id },
+        geometry: {
+          type: coords.length > 1 && Array.isArray(coords[0][0][0]) ? 'MultiPolygon' : 'Polygon',
+          coordinates: coords
+        }
+      });
+    });
+
+    const layer = L.geoJSON({ type: 'FeatureCollection', features: buildingFeatures }, {
+      style: feature => {
+        const b = buildings.find(x => x.id === feature.properties.buildingId);
+        if (!b) return { opacity: 0, fillOpacity: 0 };
+        const s = STATUS[b.status];
+        return {
+          color: s.color,
+          weight: b.status === 'uncommitted' ? 2 : 3,
+          fillColor: s.fill,
+          fillOpacity: s.fillOpacity + 0.1,
+          opacity: 0.95
+        };
+      },
+      onEachFeature: (feature, leafletLayer) => {
+        const b = buildings.find(x => x.id === feature.properties.buildingId);
+        if (!b) return;
+        const s = STATUS[b.status];
+        const tip = `<div style="padding:4px">
+          <strong style="color:#f1f5f9;font-size:12px;">${b.address}</strong><br/>
+          <span style="color:#94a3b8;font-size:10px;">📍 ${b.neighborhood}</span>
+          <div style="margin-top:4px;">Status: <span style="color:${s.color};font-weight:600">${s.label}</span></div>
+          ${b.status === 'paid'
+            ? `<div>Paid: <span style="color:#34d399;font-weight:700">${fmt(b.paid)}</span> / ${fmt(b.target)}</div>`
+            : `<div>Target: <span style="color:#fbbf24;font-weight:600">${fmt(b.target)}</span></div>`}
+          <div style="color:#64748b;font-size:10px;margin-top:2px">🏠 ${b.units} units · 👤 ${b.manager}</div>
+        </div>`;
+        leafletLayer.bindTooltip(tip, { className: 'custom-tooltip', direction: 'top', sticky: true, opacity: 1 });
+        leafletLayer.on('click', () => {
+          if (isAdmin) {
+            setSelectedBldg(b);
+          }
+        });
+      }
+    });
+
+    layer.addTo(map);
+    osmLayerRef.current = layer;
+  },[buildings, isAdmin]);
+
+  // ── Point markers (labels + centre dots) ─────────────────────────────────
+  useEffect(()=>{
+    const map = mapRef.current;
+    if(!map) return;
+    Object.values(markersRef.current).forEach(m=>map.removeLayer(m));
+    markersRef.current = {};
+
+    const vis = buildings.filter(b=>{
+      const ms = !searchQ || b.address.toLowerCase().includes(searchQ.toLowerCase()) || b.street.toLowerCase().includes(searchQ.toLowerCase());
+      const mf = !filterStatus || b.status===filterStatus;
+      return ms && mf;
+    });
+
+    vis.forEach(b=>{
+      const s = STATUS[b.status];
+      const r = 14 + Math.min(b.units/12, 10);
+      const sz = r*2+10;
+      const ip = b.status==='paid', ic = b.status==='committed';
+      const svg = `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" xmlns="http://www.w3.org/2000/svg">
+        ${ip?`<circle cx="${sz/2}" cy="${sz/2}" r="${sz/2-1}" fill="${s.fill}" fill-opacity="0.1" stroke="${s.color}" stroke-width="1" stroke-dasharray="3 2"/>`:''}
+        <circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="${s.fill}"
+          fill-opacity="${ip?.55:ic?.32:.08}" stroke="${s.color}"
+          stroke-width="${b.status==='uncommitted'?1.4:2.2}" stroke-opacity="${b.status==='uncommitted'?.5:.9}"/>
+        ${ip?`<path d="M${sz/2-4},${sz/2} l3,3 l5.5,-5.5" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+           :ic?`<circle cx="${sz/2}" cy="${sz/2}" r="4.5" fill="${s.color}" fill-opacity="0.85"/>`
+           :`<circle cx="${sz/2}" cy="${sz/2}" r="3" fill="${s.color}" fill-opacity="0.5"/>`}
+      </svg>`;
+
+      const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], tooltipAnchor:[sz/2,-sz/2]});
+      const m = L.marker([b.lat,b.lng],{icon,interactive:true});
+
+      const tip = `<div style="padding:3px">
+        <strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><br/>
+        <span style="color:#94a3b8;font-size:10px">📍 ${b.neighborhood}</span>
+        <div style="margin-top:3px">Status: <span style="color:${s.color};font-weight:600">${s.label}</span></div>
+        ${b.status==='paid'
+          ?`<div>Paid: <span style="color:#34d399;font-weight:700">${fmt(b.paid)}</span> / ${fmt(b.target)}</div>`
+          :`<div>Target: <span style="color:#fbbf24;font-weight:600">${fmt(b.target)}</span></div>`}
+        <div style="color:#64748b;font-size:10px;margin-top:2px">🏠 ${b.units} units · 👤 ${b.manager}</div>
+      </div>`;
+      m.bindTooltip(tip,{className:'custom-tooltip',direction:'top',offset:[0,-sz/2],opacity:1});
+
+      if(ip){
+        const li = L.divIcon({
+          html:`<div style="background:rgba(16,185,129,0.92);color:white;font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:1px solid rgba(52,211,153,0.5)">${fmt(b.paid)}</div>`,
+          className:'', iconAnchor:[0,sz/2+6]
+        });
+        const lm = L.marker([b.lat,b.lng],{icon:li,interactive:false,zIndexOffset:-1});
+        lm.addTo(map); markersRef.current[`${b.id}_lbl`]=lm;
+      }
+
+      m.on('click',()=>{
+        setBuildings(prev=>{
+          const cur=prev.find(x=>x.id===b.id);
+          if(cur) setSelectedBldg(cur);
+          return prev;
+        });
+      });
+      m.addTo(map);
+      markersRef.current[b.id]=m;
+    });
+  },[buildings, searchQ, filterStatus]);
+
+  // ── Add-mode: map cursor + click handler ─────────────────────────────────
+  useEffect(()=>{
+    const map = mapRef.current;
+    if(!map) return;
+    const container = map.getContainer();
+
+    const handleMapClick = async e => {
+      // In Admin Mode: clicking on the map (or button) lets you add a building at that exact spot!
+      if (!isAdmin && !addMode) return;
+
+      // Check if user clicked an existing building
+      const clickLat = e.latlng.lat, clickLng = e.latlng.lng;
+      const distM = (lat1,lng1,lat2,lng2) => {
+        const dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+        const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+        return 6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+      };
+      const existing = buildings.find(b => distM(b.lat, b.lng, clickLat, clickLng) < 25);
+      if (existing) {
+        if (isAdmin) setSelectedBldg(existing);
+        return;
+      }
+
+      // If in addMode OR admin double click/click:
+      if (addMode || isAdmin) {
+        if (tempMarkerRef.current){ map.removeLayer(tempMarkerRef.current); tempMarkerRef.current=null; }
+        const pingIcon = L.divIcon({
+          html:`<div style="position:relative;width:20px;height:20px">
+            <div class="add-ping" style="position:absolute;inset:0;border-radius:50%;border:3px solid #10b981;"></div>
+            <div style="position:absolute;inset:4px;border-radius:50%;background:#10b981"></div>
+          </div>`,
+          className:'', iconSize:[20,20], iconAnchor:[10,10]
+        });
+        tempMarkerRef.current = L.marker([clickLat, clickLng],{icon:pingIcon,interactive:false}).addTo(map);
+        
+        // Reverse geocode to auto-fill address & building footprint
+        showToast('Looking up building data...', 'info');
+        const info = await reverseLookup(clickLat, clickLng);
+        setAddCoords({ lat: clickLat, lng: clickLng, address: info.address, street: info.street, polygon: info.polygon });
+        setAddMode(false);
+        setShowAddModal(true);
+      }
+    };
+
+    if(addMode || isAdmin){
+      container.classList.add('map-add-mode');
+      map.on('click',handleMapClick);
+    } else {
+      container.classList.remove('map-add-mode');
+      map.off('click',handleMapClick);
+    }
+    return ()=>{ map.off('click',handleMapClick); container.classList.remove('map-add-mode'); };
+  },[addMode, isAdmin, buildings]);
+
+  // Clean up temp marker when modal closes
+  useEffect(()=>{
+    if(!showAddModal && tempMarkerRef.current && mapRef.current){
+      mapRef.current.removeLayer(tempMarkerRef.current);
+      tempMarkerRef.current=null;
+    }
+  },[showAddModal]);
+
+  // ── OSM polygon click: open edit modal only in admin mode ─────────────────
+  useEffect(()=>{
+    const layer = osmLayerRef.current;
+    if(!layer) return;
+    // OSM click is wired in onEachFeature but only triggers setSelectedBldg;
+    // the modal is gated by isAdmin in JSX.
+  },[isAdmin, osmLayerRef.current]);
+
+  useEffect(()=>{ saveBuildings(buildings); },[buildings]);
+
+  const handleSave = useCallback(async updated => {
+    // Optimistic UI update
+    setBuildings(prev => prev.map(b => b.id === updated.id ? updated : b));
+    showToast(`${updated.address} — saved`);
+
+    const client = getSupabaseClient();
+    if (client && dbConnected) {
+      try {
+        const { error } = await client.from('buildings').upsert(mapBuildingToDb(updated));
+        if (error) throw error;
+      } catch(err) {
+        console.warn('Supabase save error:', err);
+        showToast('Saved locally (Cloud sync failed)', 'info');
+      }
+    }
+  }, [showToast, dbConnected]);
+
+  const handleDelete = useCallback(async id => {
+    setBuildings(prev => prev.filter(b => b.id !== id));
+    showToast('Building deleted', 'info');
+
+    const client = getSupabaseClient();
+    if (client && dbConnected) {
+      try {
+        const { error } = await client.from('buildings').delete().eq('id', id);
+        if (error) throw error;
+      } catch(err) {
+        console.warn('Supabase delete error:', err);
+      }
+    }
+  }, [showToast, dbConnected]);
+
+  const handleAdd = useCallback(async newB => {
+    setBuildings(prev => [...prev, newB]);
+    showToast(`${newB.address} — added`);
+
+    const client = getSupabaseClient();
+    if (client && dbConnected) {
+      try {
+        const { error } = await client.from('buildings').insert(mapBuildingToDb(newB));
+        if (error) throw error;
+      } catch(err) {
+        console.warn('Supabase add error:', err);
+      }
+    }
+  }, [showToast, dbConnected]);
+
+  const handleBuildingClick = useCallback(b=>{
+    if(!isAdmin) return;
+    setBuildings(prev=>{ const cur=prev.find(x=>x.id===b.id); if(cur) setSelectedBldg(cur); return prev; });
+  },[isAdmin]);
+
+  // ── Autocomplete (search bar) ─────────────────────────────────────────────
+  const handleSearchInput = v => {
+    setSearchQ(v); setShowAc(true);
+    clearTimeout(acTimer.current);
+    if(v.length>=2){ setAcLoading(true); acTimer.current=setTimeout(async()=>{ setAcResults(await nominatim(v)); setAcLoading(false); },380); }
+    else { setAcResults([]); setAcLoading(false); }
+  };
+  const pickAc = s => {
+    setSearchQ(s.display); setShowAc(false); setAcResults([]);
+    if(mapRef.current) mapRef.current.flyTo([s.lat,s.lng],17,{duration:1.2});
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:10}}>
+
+      {/* ── TOP BAR ── */}
+      <div className="absolute top-0 left-0 right-0 z-20 px-3 pt-3" style={{pointerEvents:'none'}}>
+        <div className="flex items-start gap-2 flex-wrap">
+
+          {/* Brand */}
+          <div className="glass rounded-2xl px-4 py-2.5 flex items-center gap-2.5" style={{pointerEvents:'all'}}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg,#ef4444,#dc2626)'}}>
+              <Icon name="mapPin" size={13} cls="text-white"/>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white leading-none">RedLine</p>
+              <p className="text-[9px] text-slate-500 leading-none mt-0.5">Netanya · Poleg & Ir Yamim</p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="flex gap-2 flex-wrap" style={{pointerEvents:'all'}}>
+            <StatCard label="Total Target" value={fmt(stats.total)} icon="target" color="#fbbf24" sub={`${buildings.length} buildings`}/>
+            <StatCard label="Committed" value={fmt(stats.committed)} icon="trending" color="#60a5fa" sub={`${stats.nCommitted} buildings`}/>
+            <StatCard label="Collected" value={fmt(stats.paid)} icon="check" color="#34d399" sub={`${stats.nPaid} paid`}/>
+          </div>
+
+          {/* Mode & Access Indicator */}
+          <div className="glass rounded-2xl p-1 flex items-center gap-1" style={{pointerEvents:'all'}}>
+            <button onClick={()=>{setIsAdmin(false);setAddMode(false);showToast('Switched to Public Read-Only Mode','info');}}
+              title="Public Read-Only Mode: Hover and explore data without editing"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${!isAdmin?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}
+              style={{pointerEvents:'all'}}>
+              <Icon name="eye" size={12}/>
+              <span className="hidden sm:inline">Public Read-Only</span>
+              <span className="sm:hidden">Viewer</span>
+            </button>
+            <button onClick={()=>{ if(!isAdmin) setShowPwModal(true); }}
+              title="Admin Editing Mode: Requires Passcode to edit buildings and record payments"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${isAdmin?'text-white':'text-slate-400 hover:text-white'}`}
+              style={{background:isAdmin?'linear-gradient(135deg,#3b82f6,#2563eb)':'',pointerEvents:'all'}}>
+              <Icon name="shield" size={12}/>
+              <span className="hidden sm:inline">Admin Editing</span>
+              <span className="sm:hidden">Admin</span>
+            </button>
+          </div>
+
+          {/* Database & Cloud Connection Status Pill */}
+          <button onClick={()=>setShowConfigModal(true)} title="Supabase Database Settings"
+            className="glass rounded-2xl px-3 py-2 flex items-center gap-2 t300 hover:bg-white/10" style={{pointerEvents:'all'}}>
+            <div className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-400 live-dot' : isOffline ? 'bg-red-400' : 'bg-amber-400 warn-dot'}`}/>
+            <span className="text-[11px] font-medium text-slate-300 hidden md:inline">
+              {dbConnected ? (realtimeActive ? 'Cloud Realtime' : 'Cloud DB') : (isOffline ? 'Offline' : 'Local Mock DB')}
+            </span>
+            <Icon name="settings" size={12} cls="text-slate-400 hover:text-white"/>
+          </button>
+
+          {/* Admin toolbar */}
+          {isAdmin && (
+            <div className="flex gap-2 flex-wrap" style={{pointerEvents:'all'}}>
+              {/* Add Building button */}
+              <button onClick={()=>{setAddMode(m=>!m); setAddCoords(null);}}
+                className={`rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold t300 ${addMode?'text-white shadow-lg':'glass text-emerald-400 hover:text-emerald-300'}`}
+                style={{background:addMode?'linear-gradient(135deg,#10b981,#059669)':'',pointerEvents:'all'}}>
+                <Icon name="plus" size={12}/>
+                {addMode ? '🎯 Click map to place…' : 'Add Building'}
+              </button>
+              {addMode && (
+                <button onClick={()=>{setShowAddModal(true);setAddCoords(null);}}
+                  className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 t300"
+                  style={{pointerEvents:'all'}}>
+                  <Icon name="building2" size={12}/> Enter Manually
+                </button>
+              )}
+              <button onClick={()=>exportCSV(buildings)}
+                className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 t300"
+                style={{pointerEvents:'all'}}>
+                <Icon name="download" size={12}/> Export CSV
+              </button>
+              <button onClick={async ()=>{
+                if(confirm('Reset all data to sample defaults?')){
+                  setBuildings(SEED);
+                  localStorage.removeItem(STORE_KEY);
+                  const client = getSupabaseClient();
+                  if (client && dbConnected) {
+                    try {
+                      const dbSeed = SEED.map(mapBuildingToDb);
+                      await client.from('buildings').upsert(dbSeed);
+                    } catch(e) { console.warn('Supabase reset seed:', e); }
+                  }
+                  showToast('Reset to defaults & synced to cloud','info');
+                }
+              }}
+                className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 t300"
+                style={{pointerEvents:'all'}}>
+                <Icon name="refresh" size={12}/> Reset
+              </button>
+              <button onClick={async ()=>{
+                if(confirm('Are you sure you want to delete ALL buildings? This cannot be undone.')){
+                  setBuildings([]);
+                  localStorage.setItem(STORE_KEY, JSON.stringify([]));
+                  const client = getSupabaseClient();
+                  if (client && dbConnected) {
+                    try {
+                      await client.from('buildings').delete().neq('id', '___');
+                    } catch(e) { console.warn('Supabase bulk delete:', e); }
+                  }
+                  showToast('All buildings deleted', 'info');
+                }
+              }}
+                className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 t300 hover:bg-red-500/10"
+                style={{border: '1px solid rgba(239, 68, 68, 0.3)', pointerEvents:'all'}}>
+                <Icon name="trash" size={12}/> Delete All
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="glass rounded-2xl p-3 mt-2 max-w-xl" style={{pointerEvents:'all'}}>
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Collection Progress</span>
+            <span className="text-[10px] font-bold text-white">{fmtPct(stats.pPaid)} collected</span>
+          </div>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden relative">
+            <div className="absolute top-0 left-0 h-full rounded-full t300" style={{width:`${stats.pComm}%`,background:'rgba(96,165,250,0.45)'}}/>
+            <div className="absolute top-0 left-0 h-full rounded-full t300" style={{width:`${stats.pPaid}%`,background:'linear-gradient(90deg,#10b981,#34d399)'}}/>
+          </div>
+          <div className="flex gap-4 mt-1.5">
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"/><span className="text-[9px] text-slate-400">Paid {fmtPct(stats.pPaid)}</span></div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-400 opacity-60"/><span className="text-[9px] text-slate-400">+{fmtPct(stats.pComm-stats.pPaid)} committed</span></div>
+            {dbLoading && <div className="flex items-center gap-1 ml-auto"><div className="w-2.5 h-2.5 rounded-full border-2 border-slate-600 border-t-emerald-400 spin"/><span className="text-[9px] text-emerald-400">Syncing with Supabase...</span></div>}
+            {isOffline && <div className="flex items-center gap-1 ml-auto text-amber-400 text-[9px]"><Icon name="wifiOff" size={10}/> Offline mode (local changes preserved)</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── LEFT PANEL ── */}
+      <div className="absolute left-3 z-20" style={{top:'270px',pointerEvents:'none',maxWidth:'260px',width:'100%'}}>
+
+        {/* Search */}
+        <div className="relative mb-2" ref={searchRef}>
+          <div className="glass rounded-2xl p-2" style={{pointerEvents:'all'}}>
+            <div className="flex items-center gap-2">
+              <Icon name="search" size={14} cls="text-slate-400 ml-1 flex-shrink-0"/>
+              <input type="text" placeholder="Search address or street…" value={searchQ}
+                onChange={e=>handleSearchInput(e.target.value)}
+                onFocus={()=>searchQ.length>=2&&setShowAc(true)}
+                onBlur={()=>setTimeout(()=>setShowAc(false),160)}
+                style={{background:'transparent',border:'none',boxShadow:'none',padding:'4px 0',fontSize:'12px',pointerEvents:'all'}}/>
+              {searchQ && <button onClick={()=>{setSearchQ('');setAcResults([]);setShowAc(false);}} className="text-slate-500 hover:text-white t300" style={{pointerEvents:'all'}}><Icon name="x" size={12}/></button>}
+              {acLoading && <div className="w-3 h-3 rounded-full border-2 border-slate-600 border-t-blue-400 flex-shrink-0 spin"/>}
+            </div>
+          </div>
+          {showAc && (acResults.length>0||acLoading) && (
+            <div className="autocomplete-dropdown absolute top-full left-0 right-0 mt-1 z-30" style={{pointerEvents:'all'}}>
+              {acLoading&&acResults.length===0&&<div className="autocomplete-item ac-loading"><div className="w-3 h-3 rounded-full border-2 border-slate-700 border-t-blue-400 spin flex-shrink-0"/>Searching…</div>}
+              {acResults.map((s,i)=>(
+                <div key={i} className="autocomplete-item" onMouseDown={()=>pickAc(s)}>
+                  <Icon name="mapPin" size={10} cls="text-blue-400 flex-shrink-0"/>
+                  <span className="truncate">{s.display}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Filter chips */}
+        <div className="flex gap-1.5 mb-2 flex-wrap" style={{pointerEvents:'all'}}>
+          {[['','All'],['uncommitted','Uncommitted'],['committed','Committed'],['paid','Paid']].map(([val,lbl])=>(
+            <button key={val} onClick={()=>setFilterStatus(val)}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold t300 ${filterStatus===val?'text-white shadow-lg':'glass text-slate-400 hover:text-white'}`}
+              style={{background:filterStatus===val?(val===''?'linear-gradient(135deg,#6366f1,#4f46e5)':val==='uncommitted'?'#475569':val==='committed'?'#2563eb':'#059669'):'',pointerEvents:'all'}}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        {/* List toggle */}
+        <button onClick={()=>setShowList(!showList)}
+          className="glass w-full rounded-xl py-2 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:text-white t300 mb-2"
+          style={{pointerEvents:'all'}}>
+          <Icon name="building2" size={13}/>
+          {showList?'Hide':'Show'} Building List
+          <Icon name="chevron" size={12} cls={`t300 ${showList?'rotate-180':''}`}/>
+        </button>
+
+        {showList && (
+          <SidebarList buildings={buildings} filterStatus={filterStatus} searchQ={searchQ}
+            isAdmin={isAdmin} onBuildingClick={handleBuildingClick} onClose={()=>setShowList(false)}/>
+        )}
+      </div>
+
+      {/* ── LEGEND ── */}
+      <div className="absolute bottom-8 left-3 z-20 glass rounded-2xl p-3" style={{pointerEvents:'all'}}>
+        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Legend</p>
+        {Object.entries(STATUS).map(([key,s])=>(
+          <div key={key} className="flex items-center gap-2 mb-1.5 last:mb-0">
+            <div className="w-3 h-3 rounded-sm border-2" style={{background:s.fill,borderColor:s.color,opacity:key==='uncommitted'?.5:1}}/>
+            <span className="text-[10px] text-slate-300">{s.label}</span>
+            <span className="text-[9px] text-slate-600 ml-auto">{buildings.filter(b=>b.status===key).length}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── ADMIN BADGE ── */}
+      {isAdmin && (
+        <div className="absolute bottom-8 right-16 z-20" style={{pointerEvents:'none'}}>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold text-white"
+               style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',boxShadow:'0 4px 16px rgba(59,130,246,0.4)'}}>
+            <Icon name="shield" size={11}/> ADMIN MODE
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD MODE banner ── */}
+      {addMode && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+             style={{transform:'translate(-50%,-50%)',top:'auto',bottom:'120px'}}>
+          <div className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-semibold text-white fade-in-up"
+               style={{background:'linear-gradient(135deg,rgba(16,185,129,0.9),rgba(5,150,105,0.9))',backdropFilter:'blur(12px)',border:'1px solid rgba(52,211,153,0.4)',boxShadow:'0 8px 32px rgba(0,0,0,0.4)'}}>
+            <Icon name="mapPin" size={16}/>
+            Click anywhere on the map or on a building to place/edit
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ── */}
+      {toast && (
+        <div className="absolute bottom-6 left-1/2 z-50 rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm font-medium text-white shadow-2xl fade-in-up"
+          style={{transform:'translateX(-50%)',
+            background:toast.type==='success'?'linear-gradient(135deg,rgba(16,185,129,0.92),rgba(5,150,105,0.92))':'linear-gradient(135deg,rgba(59,130,246,0.92),rgba(37,99,235,0.92))',
+            backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.15)',pointerEvents:'none'}}>
+          <Icon name={toast.type==='success'?'check':'info'} size={14}/>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* ── MODALS ── */}
+      {/* ── INITIAL DB LOADING SPINNER OVERLAY ── */}
+      {dbLoading && buildings.length === 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" style={{pointerEvents:'all'}}>
+          <div className="glass rounded-2xl p-6 flex flex-col items-center gap-3 border border-white/15 shadow-2xl">
+            <div className="w-8 h-8 rounded-full border-3 border-emerald-500 border-t-transparent spin" style={{borderWidth:'3px'}}/>
+            <p className="text-sm font-semibold text-white">Connecting to Central Database...</p>
+            <p className="text-xs text-slate-400">Synchronizing Netanya community payments in real-time</p>
+          </div>
+        </div>
+      )}
+
+      {showConfigModal && (
+        <ConfigModal
+          onClose={()=>setShowConfigModal(false)}
+          onSaved={(cfg)=>{
+            showToast('Supabase settings updated', 'success');
+            // Re-initialize client
+            supabaseClient = null;
+            getSupabaseClient();
+          }}
+        />
+      )}
+
+      {showPwModal && (
+        <AdminPasswordModal
+          onSuccess={()=>{ setIsAdmin(true); setShowPwModal(false); showToast('Admin mode unlocked','info'); }}
+          onCancel={()=>setShowPwModal(false)}/>
+      )}
+
+      {isAdmin && selectedBldg && (
+        <BuildingModal
+          building={selectedBldg}
+          onClose={()=>setSelectedBldg(null)}
+          onSave={handleSave}
+          onDelete={handleDelete}/>
+      )}
+
+      {showAddModal && (
+        <AddBuildingModal
+          initialLat={addCoords?.lat}
+          initialLng={addCoords?.lng}
+          initialAddress={addCoords?.address}
+          initialStreet={addCoords?.street}
+          initialPolygon={addCoords?.polygon}
+          onClose={()=>{ setShowAddModal(false); setAddCoords(null); }}
+          onAdd={handleAdd}/>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
