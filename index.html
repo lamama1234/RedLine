@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RedLine — Netanya Community Project Payments</title>
+  <title>RedLine — ניהול פרויקט קהילתי נתניה</title>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ef4444'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z'/><circle cx='12' cy='10' r='3' fill='white'/></svg>">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -17,7 +19,7 @@
     .leaflet-popup-content-wrapper {
       background: rgba(15,23,42,0.96); border: 1px solid rgba(255,255,255,0.12);
       border-radius: 12px; backdrop-filter: blur(16px); color: #f1f5f9;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5); text-align: right;
     }
     .leaflet-popup-tip { background: rgba(15,23,42,0.96); }
     .leaflet-popup-content { margin: 0; padding: 0; }
@@ -45,6 +47,7 @@
       padding: 8px 12px !important; white-space: nowrap;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
       text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+      text-align: right; direction: rtl;
     }
     .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(10,15,28,0.97) !important; }
 
@@ -57,7 +60,7 @@
       border: 1px solid rgba(255,255,255,0.13) !important;
       color: #f1f5f9 !important; border-radius: 8px !important;
       padding: 8px 12px !important; outline: none !important;
-      transition: border-color 0.2s; width: 100%;
+      transition: border-color 0.2s; width: 100%; text-align: right;
     }
     input[type="text"]:focus, input[type="number"]:focus,
     input[type="password"]:focus, select:focus, textarea:focus {
@@ -90,7 +93,7 @@
       background: rgba(10,15,30,0.98); backdrop-filter: blur(24px);
       border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.65); overflow: hidden;
-      max-height: 220px; overflow-y: auto;
+      max-height: 220px; overflow-y: auto; text-align: right;
     }
     .autocomplete-item {
       padding: 9px 14px; font-size: 11px; color: #cbd5e1; cursor: pointer;
@@ -118,7 +121,6 @@
     }
     .live-dot { animation: livePulse 2s infinite; }
   </style>
-  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -166,34 +168,37 @@ function getSupabaseClient() {
 }
 
 const STATUS = {
-  uncommitted: { label:'Uncommitted', color:'#94a3b8', fill:'#1e293b',   fillOpacity:0.18, weight:1.8, badgeClass:'badge-uncommitted' },
-  committed:   { label:'Committed',   color:'#60a5fa', fill:'#3b82f6',   fillOpacity:0.38, weight:2.5, badgeClass:'badge-committed'   },
-  paid:        { label:'Paid',        color:'#34d399', fill:'#10b981',   fillOpacity:0.52, weight:2.5, badgeClass:'badge-paid'        },
+  uncommitted: { label:'לא התחייב', color:'#94a3b8', fill:'#1e293b',   fillOpacity:0.18, weight:1.8, badgeClass:'badge-uncommitted' },
+  committed:   { label:'התחייב',    color:'#60a5fa', fill:'#3b82f6',   fillOpacity:0.38, weight:2.5, badgeClass:'badge-committed'   },
+  paid:        { label:'שילם',      color:'#34d399', fill:'#10b981',   fillOpacity:0.52, weight:2.5, badgeClass:'badge-paid'        },
 };
-
-const SEED = [
-  { id:'b1',  address:'שדרות שז"ר 1',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:42, manager:'דוד לוי',     target:1000,  lat:32.2762, lng:34.8472, status:'committed', paid:0,     notes:'' },
-  { id:'b2',  address:'שדרות שז"ר 3',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:38, manager:'שרה כהן',    target:1000,  lat:32.2755, lng:34.8480, status:'committed',   paid:0,     notes:'צפוי לשלם בקרוב' },
-  { id:'b3',  address:'שדרות שז"ר 5',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:55, manager:'משה ישראלי', target:1000,  lat:32.2748, lng:34.8488, status:'paid',        paid:1000,  notes:'' },
-  { id:'b4',  address:'שדרות שז"ר 7',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:60, manager:'יעקב מזרחי', target:1000,  lat:32.2741, lng:34.8495, status:'paid',        paid:1000,  notes:'שולם במלואו' },
-  { id:'b5',  address:'שדרות שז"ר 9',    street:'שדרות שז"ר',    neighborhood:'Ir Yamim', units:36, manager:'מרים אברהם', target:1000,  lat:32.2735, lng:34.8503, status:'committed',   paid:0,     notes:'' },
-  { id:'b6',  address:'רחוב הגלים 10',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:48, manager:'רחל גולן',   target:1000,  lat:32.2770, lng:34.8460, status:'committed', paid:0,     notes:'' },
-  { id:'b7',  address:'רחוב הגלים 12',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:72, manager:'אבי שפירא',  target:1000,  lat:32.2778, lng:34.8452, status:'paid',        paid:1000,  notes:'שולם חלקית' },
-  { id:'b8',  address:'רחוב הגלים 14',   street:'רחוב הגלים',    neighborhood:'Ir Yamim', units:50, manager:'חיים בר',    target:1000,  lat:32.2785, lng:34.8445, status:'committed', paid:0,     notes:'' },
-  { id:'b9',  address:'שדרות ים התיכון 20',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:68,manager:'נעמי גרין', target:1000,  lat:32.2792, lng:34.8438, status:'committed', paid:0,     notes:'' },
-  { id:'b10', address:'שדרות ים התיכון 22',street:'שדרות ים התיכון',neighborhood:'Ir Yamim',units:44,manager:'טלי שמש',  target:1000,  lat:32.2798, lng:34.8430, status:'committed',   paid:0,     notes:'' },
-  { id:'b11', address:'רחוב פולג 2',      street:'רחוב פולג',     neighborhood:'Poleg',    units:40, manager:'אורן בן דוד',target:1000, lat:32.2820, lng:34.8400, status:'paid',        paid:1000,  notes:'' },
-  { id:'b12', address:'רחוב פולג 4',      street:'רחוב פולג',     neighborhood:'Poleg',    units:35, manager:'ליאת כץ',   target:1000,  lat:32.2830, lng:34.8395, status:'committed',   paid:0,     notes:'' }
-];
 
 const fmt = n => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(n);
 const fmtPct = n => `${Math.min(100,Math.round(n))}%`;
 
+// Format address cleanly in Hebrew format: "Street Number" (e.g., "דודו דותן 6")
+function formatHebrewAddress(rawAddress) {
+  if (!rawAddress) return '';
+  const parts = rawAddress.split(',').map(s => s.trim());
+  // Remove trailing city or neighborhood parts if present (e.g. "עיר ימים", "נתניה")
+  const cleanParts = parts.filter(p => p !== 'נתניה' && p !== 'עיר ימים' && p !== 'פולג' && p !== 'התקווה');
+  if (cleanParts.length >= 2) {
+    const maybeNum = cleanParts[0];
+    const maybeStreet = cleanParts[1];
+    if (/^\d+$/.test(maybeNum)) {
+      return `${maybeStreet} ${maybeNum}`;
+    }
+  }
+  return cleanParts.join(' ') || rawAddress;
+}
+
 function mapDbToBuilding(row) {
+  const rawAddr = row.address || '';
+  const formattedAddr = formatHebrewAddress(rawAddr);
   return {
     id: row.id,
-    address: row.address,
-    street: row.street || row.address,
+    address: formattedAddr,
+    street: row.street || formattedAddr,
     neighborhood: row.neighborhood || 'Ir Yamim',
     units: row.units || 40,
     manager: row.manager || '',
@@ -234,7 +239,7 @@ function loadBuildings() {
     const r = localStorage.getItem(STORE_KEY);
     if (r) return JSON.parse(r);
   } catch {}
-  return SEED;
+  return []; // Start empty without hardcoded defaults
 }
 function saveBuildings(data) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch {}
@@ -246,7 +251,8 @@ async function reverseLookup(lat, lng) {
     const res = await fetch(url, { headers: { 'Accept-Language': 'he,en' } });
     const data = await res.json();
     const parts = (data.display_name || '').split(',').map(s => s.trim());
-    const address = parts.slice(0, 3).join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const rawAddr = parts.slice(0, 3).join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const address = formatHebrewAddress(rawAddr);
     const street = (data.address && (data.address.road || data.address.pedestrian || data.address.suburb)) || parts[0] || '';
     let polygon = null;
     if (data.geojson && (data.geojson.type === 'Polygon' || data.geojson.type === 'MultiPolygon')) {
@@ -280,7 +286,7 @@ async function nominatim(query) {
     }
 
     return data.map(x=>({
-      display: x.display_name.split(',').slice(0,3).join(', '),
+      display: formatHebrewAddress(x.display_name.split(',').slice(0,3).join(', ')),
       lat: +x.lat,
       lng: +x.lon,
       polygon: (x.geojson && (x.geojson.type === 'Polygon' || x.geojson.type === 'MultiPolygon')) ? x.geojson.coordinates : null
@@ -393,8 +399,8 @@ const AdminPasswordModal = ({onSuccess, onCancel}) => {
               <Icon name="lock" size={14} cls="text-white"/>
             </div>
             <div>
-              <p className="text-sm font-bold text-white">Admin Access</p>
-              <p className="text-[10px] text-slate-500">Enter password to continue</p>
+              <p className="text-sm font-bold text-white">גישת מנהל</p>
+              <p className="text-[10px] text-slate-500">הקלד סיסמה להמשך</p>
             </div>
           </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
@@ -403,21 +409,21 @@ const AdminPasswordModal = ({onSuccess, onCancel}) => {
         </div>
         <form onSubmit={submit} className="p-5 space-y-4">
           <div>
-            <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Password</p>
+            <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">סיסמה</p>
             <input ref={ref} type="password" value={pw}
               onChange={e=>{setPw(e.target.value);setErr(false);}}
-              placeholder="Enter admin password..."
-              style={{pointerEvents:'all',letterSpacing:pw?'0.18em':'normal'}}/>
-            {err && <p className="text-[11px] text-red-400 mt-1.5 flex items-center gap-1"><Icon name="x" size={11}/> Incorrect password.</p>}
+              placeholder="הקלד סיסמת מנהל..."
+              style={{pointerEvents:'all'}}/>
+            {err && <p className="text-[11px] text-red-400 mt-1.5 flex items-center gap-1"><Icon name="x" size={11}/> סיסמה שגויה.</p>}
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={onCancel} style={{pointerEvents:'all'}}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
-              Cancel
+              ביטול
             </button>
             <button type="submit" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white t300">
-              Unlock
+              אישור
             </button>
           </div>
         </form>
@@ -436,19 +442,19 @@ const ConfigModal = ({ onClose, onSaved }) => {
 
   const testConnection = async () => {
     if (!url || !anonKey) {
-      setTestResult({ ok: false, msg: 'Please provide both Supabase URL and Anon Key' });
+      setTestResult({ ok: false, msg: 'נא לספק כתובת URL ומפתח ציבורי' });
       return;
     }
     setTesting(true);
     setTestResult(null);
     try {
-      if (!window.supabase) throw new Error('Supabase library not loaded yet');
+      if (!window.supabase) throw new Error('ספריית Supabase לא נטענה');
       const client = window.supabase.createClient(url.trim(), anonKey.trim());
       const { data, error } = await client.from('buildings').select('id').limit(1);
       if (error) throw error;
-      setTestResult({ ok: true, msg: 'Connected successfully to Supabase buildings table!' });
+      setTestResult({ ok: true, msg: 'החיבור לבסיס הנתונים הצליח!' });
     } catch(err) {
-      setTestResult({ ok: false, msg: err.message || 'Connection failed' });
+      setTestResult({ ok: false, msg: err.message || 'החיבור נכשל' });
     } finally {
       setTesting(false);
     }
@@ -479,8 +485,8 @@ const ConfigModal = ({ onClose, onSaved }) => {
               <Icon name="database" size={15} cls="text-white"/>
             </div>
             <div>
-              <p className="text-sm font-bold text-white">Supabase Cloud Database</p>
-              <p className="text-[10px] text-slate-400">Centralized Real-Time Sync Settings (Admin Only)</p>
+              <p className="text-sm font-bold text-white">בסיס נתונים בענן (Supabase)</p>
+              <p className="text-[10px] text-slate-400">הגדרות סנכרון (מנהלים בלבד)</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
@@ -491,7 +497,7 @@ const ConfigModal = ({ onClose, onSaved }) => {
         <div className="p-5 space-y-3.5 max-h-[75vh] overflow-y-auto">
           <div>
             <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
-              Supabase Project URL
+              כתובת פרויקט URL
             </label>
             <input type="text" value={url} onChange={e=>setUrl(e.target.value)}
               placeholder="https://your-project-id.supabase.co" style={{pointerEvents:'all'}}/>
@@ -499,18 +505,18 @@ const ConfigModal = ({ onClose, onSaved }) => {
 
           <div>
             <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
-              Supabase Anon Public API Key
+              מפתח ציבורי Anon Key
             </label>
             <input type="text" value={anonKey} onChange={e=>setAnonKey(e.target.value)}
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style={{pointerEvents:'all'}}/>
+              placeholder="eyJhbGciOiJIUzI1Ni..." style={{pointerEvents:'all'}}/>
           </div>
 
           <div>
             <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
-              Admin Passcode
+              סיסמת מנהל
             </label>
             <input type="text" value={adminPasscode} onChange={e=>setAdminPasscode(e.target.value)}
-              placeholder="Default: KavAdom1" style={{pointerEvents:'all'}}/>
+              placeholder="ברירת מחדל: KavAdom1" style={{pointerEvents:'all'}}/>
           </div>
 
           {testResult && (
@@ -525,12 +531,12 @@ const ConfigModal = ({ onClose, onSaved }) => {
               className="flex-1 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300 disabled:opacity-40 flex items-center justify-center gap-1.5"
               style={{pointerEvents:'all'}}>
               {testing ? <div className="w-3 h-3 rounded-full border-2 border-slate-400 border-t-white spin"/> : <Icon name="wifi" size={13}/>}
-              {testing ? 'Testing...' : 'Test Connection'}
+              {testing ? 'בודק...' : 'בדיקת חיבור'}
             </button>
             <button type="button" onClick={handleSave}
               className="flex-1 py-2 rounded-xl text-xs font-semibold text-white t300"
               style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}>
-              Save & Apply
+              שמור והחל
             </button>
           </div>
         </div>
@@ -542,7 +548,6 @@ const ConfigModal = ({ onClose, onSaved }) => {
 const BuildingModal = ({building, onClose, onSave, onDelete}) => {
   const [address,      setAddress]      = useState(building.address || '');
   const [street,       setStreet]       = useState(building.street || building.address || '');
-  const [neighborhood, setNeighborhood] = useState(building.neighborhood || 'Ir Yamim');
   const [units,        setUnits]        = useState(building.units || 40);
   const [manager,      setManager]      = useState(building.manager || '');
   const [target,       setTarget]       = useState(building.target || 1000);
@@ -556,9 +561,8 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
   const save = () => {
     onSave({
       ...building,
-      address: address.trim(),
+      address: formatHebrewAddress(address.trim()),
       street: street.trim() || address.trim(),
-      neighborhood,
       units: Number(units),
       manager: manager.trim(),
       target: Number(target),
@@ -583,7 +587,7 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
               <Icon name="edit" size={15} cls="text-white"/>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Edit Building Data</h2>
+              <h2 className="text-sm font-bold text-white">עריכת פרטי בניין</h2>
               <p className="text-[10px] text-slate-400">{building.address}</p>
             </div>
           </div>
@@ -594,49 +598,41 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
 
         <div className="p-5 space-y-3 max-h-[72vh] overflow-y-auto">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Address *</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">כתובת *</p>
             <input type="text" value={address} onChange={e=>setAddress(e.target.value)} style={{pointerEvents:'all'}}/>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Neighborhood *</p>
-              <select value={neighborhood} onChange={e=>setNeighborhood(e.target.value)} style={{pointerEvents:'all'}}>
-                <option value="Ir Yamim">Ir Yamim</option>
-                <option value="Poleg">Poleg</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Units</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">יחידות דיור</p>
               <input type="number" value={units} min={1} onChange={e=>setUnits(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Manager *</p>
-              <input type="text" value={manager} onChange={e=>setManager(e.target.value)} style={{pointerEvents:'all'}}/>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Target Amount (₪)</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">יעד גבייה (₪)</p>
               <input type="number" value={target} min={0} onChange={e=>setTarget(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Latitude *</p>
-              <input type="number" value={lat} step={0.00001} onChange={e=>setLat(e.target.value)} style={{pointerEvents:'all'}}/>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">נציג / ועד בניין *</p>
+              <input type="text" value={manager} onChange={e=>setManager(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Longitude *</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">קווי רוחב (Lat)</p>
+              <input type="number" value={lat} step={0.00001} onChange={e=>setLat(e.target.value)} style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">קווי אורך (Lng)</p>
               <input type="number" value={lng} step={0.00001} onChange={e=>setLng(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
           </div>
 
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Payment Status</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">סטטוס תשלום</p>
             <div className="flex gap-4">
               {Object.entries(STATUS).map(([key,cfg])=>(
                 <label key={key} className="flex items-center gap-1.5 cursor-pointer" style={{pointerEvents:'all'}}>
@@ -651,13 +647,13 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
 
           {status==='paid' && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Amount Paid (₪)</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">סכום ששולם (₪)</p>
               <input type="number" value={paid} min={0} onChange={e=>setPaid(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
           )}
 
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Notes</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">הערות</p>
             <textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} style={{pointerEvents:'all',resize:'none'}}/>
           </div>
 
@@ -665,28 +661,28 @@ const BuildingModal = ({building, onClose, onSave, onDelete}) => {
             {!confirmDel
               ? <button onClick={()=>setConfirmDel(true)} style={{pointerEvents:'all'}}
                   className="px-3 py-2.5 rounded-xl text-xs font-semibold btn-danger t300 flex items-center gap-1.5">
-                  <Icon name="trash" size={13}/> Delete
+                  <Icon name="trash" size={13}/> מחק
                 </button>
               : <button onClick={del} style={{pointerEvents:'all'}}
                   className="px-3 py-2.5 rounded-xl text-xs font-semibold text-white t300 flex items-center gap-1.5"
                   style={{background:'#dc2626',pointerEvents:'all'}}>
-                  <Icon name="trash" size={13}/> Confirm Delete
+                  <Icon name="trash" size={13}/> אישור מחיקה
                 </button>
             }
             {confirmDel && (
               <button onClick={()=>setConfirmDel(false)} style={{pointerEvents:'all'}}
                 className="px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-white/10 t300">
-                Cancel
+                ביטול
               </button>
             )}
             <div className="flex-1"/>
             <button onClick={onClose} style={{pointerEvents:'all'}}
               className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
-              Cancel
+              ביטול
             </button>
             <button onClick={save} style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
               className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white t300">
-              Save Changes
+              שמור שינויים
             </button>
           </div>
         </div>
@@ -699,11 +695,10 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   const [address,      setAddress]      = useState(initialAddress || '');
   const [street,       setStreet]       = useState(initialStreet || '');
   const [buildingPoly, setBuildingPoly] = useState(initialPolygon || null);
-  const [neighborhood, setNeighborhood] = useState(''); // FORCED NO DEFAULT VALUE
   const [units,        setUnits]        = useState(40);
   const [manager,      setManager]      = useState('');
   const [target,       setTarget]       = useState(1000);
-  const [status,       setStatus]       = useState('committed'); // DEFAULT TO COMMITTED
+  const [status,       setStatus]       = useState('committed'); // Default to committed
   const [lat,          setLat]          = useState(initialLat ? initialLat.toFixed(6) : '');
   const [lng,          setLng]          = useState(initialLng ? initialLng.toFixed(6) : '');
   const [acQuery,      setAcQuery]      = useState(initialAddress || '');
@@ -720,7 +715,8 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   };
 
   const pickAc = async s => {
-    setAddress(s.display); setAcQuery(s.display);
+    const formatted = formatHebrewAddress(s.display);
+    setAddress(formatted); setAcQuery(formatted);
     setLat(s.lat.toFixed(6)); setLng(s.lng.toFixed(6));
     setShowAc(false); setAcResults([]);
     
@@ -730,13 +726,13 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
     if (!s.polygon && info.polygon) setBuildingPoly(info.polygon);
   };
 
-  const valid = address.trim() && neighborhood && lat && lng && manager.trim();
+  const valid = address.trim() && lat && lng && manager.trim();
 
   const save = () => {
     if(!valid) return;
     onAdd({
-      id: uid(), address: address.trim(), street: street.trim() || address.trim(),
-      neighborhood, units: Number(units), manager: manager.trim(),
+      id: uid(), address: formatHebrewAddress(address.trim()), street: street.trim() || address.trim(),
+      neighborhood: 'Ir Yamim', units: Number(units), manager: manager.trim(),
       target: Number(target), lat: parseFloat(lat), lng: parseFloat(lng),
       polygon: buildingPoly,
       status: status, paid: status==='paid'? Number(target) : 0, notes: '',
@@ -755,9 +751,9 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
               <Icon name="plus" size={15} cls="text-white"/>
             </div>
             <div>
-              <p className="text-sm font-bold text-white">Add New Building</p>
+              <p className="text-sm font-bold text-white">הוספת בניין חדש</p>
               <p className="text-[10px] text-slate-500">
-                {lat && lng ? `Location set to ${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : 'Search address or enter details below'}
+                {lat && lng ? `מיקום מוגדר: ${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : 'חפש כתובת או הזן פרטים ידנית'}
               </p>
             </div>
           </div>
@@ -768,15 +764,15 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
 
         <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
           <div className="relative">
-            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Address Search / Manual Entry *</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">חיפוש כתובת / הזנה ידנית *</p>
             <input type="text" value={acQuery} onChange={e=>handleAcInput(e.target.value)}
               onFocus={()=>acQuery.length>=2&&setShowAc(true)}
               onBlur={()=>setTimeout(()=>setShowAc(false),160)}
-              placeholder="e.g. נתן יונתן 22, נתניה" style={{pointerEvents:'all'}}/>
+              placeholder="לדוגמה: נתן יונתן 22, נתניה" style={{pointerEvents:'all'}}/>
             {showAc && (acResults.length>0 || acLoading) && (
               <div className="autocomplete-dropdown absolute left-0 right-0 top-full mt-1 z-10" style={{pointerEvents:'all'}}>
                 {acLoading && acResults.length===0 && <div className="autocomplete-item ac-loading">
-                  <div className="w-3 h-3 rounded-full border-2 border-slate-700 border-t-blue-400 spin flex-shrink-0"/>Searching...
+                  <div className="w-3 h-3 rounded-full border-2 border-slate-700 border-t-blue-400 spin flex-shrink-0"/>מחפש...
                 </div>}
                 {acResults.map((s,i)=>(
                   <div key={i} className="autocomplete-item" onMouseDown={()=>pickAc(s)}>
@@ -789,43 +785,34 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
           </div>
 
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Street Name</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">שם רחוב</p>
             <input type="text" value={street} onChange={e=>setStreet(e.target.value)}
-              placeholder="e.g. נתן יונתן" style={{pointerEvents:'all'}}/>
+              placeholder="לדוגמה: נתן יונתן" style={{pointerEvents:'all'}}/>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Neighborhood *</p>
-              <select value={neighborhood} onChange={e=>setNeighborhood(e.target.value)} style={{pointerEvents:'all'}}>
-                <option value="" disabled>-- Select Neighborhood --</option>
-                <option value="Ir Yamim">Ir Yamim</option>
-                <option value="Poleg">Poleg</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Units</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">יחידות דיור</p>
               <input type="number" value={units} min={1} max={500}
                 onChange={e=>setUnits(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Building Manager *</p>
-              <input type="text" value={manager} onChange={e=>setManager(e.target.value)}
-                placeholder="ועד בית" style={{pointerEvents:'all'}}/>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Target Amount (₪)</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">יעד גבייה (₪)</p>
               <input type="number" value={target} min={0}
                 onChange={e=>setTarget(e.target.value)} style={{pointerEvents:'all'}}/>
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">נציג / ועד בניין *</p>
+              <input type="text" value={manager} onChange={e=>setManager(e.target.value)}
+                placeholder="שם ועד הבית" style={{pointerEvents:'all'}}/>
+            </div>
+          </div>
+
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Payment Status</p>
+            <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">סטטוס תשלום</p>
             <div className="flex gap-4">
               {Object.entries(STATUS).map(([key,cfg])=>(
                 <label key={key} className="flex items-center gap-1.5 cursor-pointer" style={{pointerEvents:'all'}}>
@@ -840,12 +827,12 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Latitude *</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">קווי רוחב (Lat) *</p>
               <input type="number" value={lat} step={0.00001}
                 onChange={e=>setLat(e.target.value)} placeholder="32.xxxx" style={{pointerEvents:'all'}}/>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Longitude *</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">קווי אורך (Lng) *</p>
               <input type="number" value={lng} step={0.00001}
                 onChange={e=>setLng(e.target.value)} placeholder="34.xxxx" style={{pointerEvents:'all'}}/>
             </div>
@@ -854,13 +841,13 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} style={{pointerEvents:'all'}}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
-              Cancel
+              ביטול
             </button>
             <button onClick={save} disabled={!valid} style={{
               background: valid ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,0.06)',
               pointerEvents:'all'
             }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white t300 disabled:opacity-40">
-              Add Building
+              הוסף בניין
             </button>
           </div>
         </div>
@@ -879,21 +866,21 @@ const SidebarList = ({buildings, filterStatus, searchQ, isAdmin, onBuildingClick
   return (
     <div className="glass rounded-2xl overflow-hidden shadow-2xl" style={{maxHeight:'calc(100vh - 280px)',display:'flex',flexDirection:'column'}}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Buildings ({filtered.length})</span>
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">בניינים ({filtered.length})</span>
         <button onClick={onClose} className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-white t300" style={{pointerEvents:'all'}}>
           <Icon name="x" size={13}/>
         </button>
       </div>
       <div style={{overflowY:'auto',flex:1}}>
-        {filtered.length===0 && <div className="p-5 text-center text-slate-500 text-xs">No buildings match.</div>}
+        {filtered.length===0 && <div className="p-5 text-center text-slate-500 text-xs">אין בניינים תואמים.</div>}
         {filtered.map(b=>(
           <div key={b.id} onClick={()=>isAdmin&&onBuildingClick(b)}
             className={`px-4 py-3 border-b border-white/5 flex items-start justify-between gap-2 ${isAdmin?'cursor-pointer hover:bg-white/5':''} t300`}
             style={{pointerEvents:'all'}}>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{b.address}</p>
-              <p className="text-[10px] text-slate-500">{b.neighborhood} · {b.units} units</p>
-              {b.status==='paid' && <p className="text-[10px] text-emerald-400 mt-0.5">{fmt(b.paid)} paid</p>}
+              <p className="text-[10px] text-slate-500">{b.units} יחידות דיור</p>
+              {b.status==='paid' && <p className="text-[10px] text-emerald-400 mt-0.5">שולם {fmt(b.paid)}</p>}
             </div>
             <Badge status={b.status}/>
           </div>
@@ -921,7 +908,7 @@ function App() {
   const [toast,          setToast]          = useState(null);
   const [osmFeatures,    setOsmFeatures]    = useState([]);
   const [isFixingPos,    setIsFixingPos]    = useState(false);
-  const [mapType,        setMapType]        = useState('street'); // STREET MAP AS DEFAULT
+  const [mapType,        setMapType]        = useState('street');
 
   const [dbLoading,      setDbLoading]      = useState(false);
   const [dbConnected,    setDbConnected]    = useState(false);
@@ -986,9 +973,6 @@ function App() {
             const mapped = data.map(mapDbToBuilding);
             setBuildings(mapped);
             saveBuildings(mapped);
-          } else {
-            const dbSeed = SEED.map(mapBuildingToDb);
-            await client.from('buildings').upsert(dbSeed);
           }
           setDbConnected(true);
         }
@@ -1050,7 +1034,7 @@ function App() {
     }).addTo(map);
 
     tileLayerRef.current = tLayer;
-    L.control.zoom({position:'bottomright'}).addTo(map);
+    L.control.zoom({position:'bottomleft'}).addTo(map);
     mapRef.current = map;
     return ()=>map.remove();
   },[]);
@@ -1105,7 +1089,7 @@ function App() {
         const b = buildings.find(x => x.id === feature.properties.buildingId);
         if (!b) return;
         const s = STATUS[b.status];
-        const tip = `<div style="padding:4px"><strong style="color:#f1f5f9;font-size:12px;">${b.address}</strong><br/><span style="color:#94a3b8;font-size:10px;">📍 ${b.neighborhood}</span><div style="margin-top:4px;">Status: <span style="color:${s.color};font-weight:600">${s.label}</span></div>${b.status === 'paid' ? `<div>Paid: <span style="color:#34d399;font-weight:700">${fmt(b.paid)}</span> / ${fmt(b.target)}</div>` : `<div>Target: <span style="color:#fbbf24;font-weight:600">${fmt(b.target)}</span></div>`}</div>`;
+        const tip = `<div style="padding:4px"><strong style="color:#f1f5f9;font-size:12px;">${b.address}</strong><div style="margin-top:4px;">סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>${b.status === 'paid' ? `<div>שולם: <span style="color:#34d399;font-weight:700">${fmt(b.paid)}</span> / ${fmt(b.target)}</div>` : `<div>יעד: <span style="color:#fbbf24;font-weight:600">${fmt(b.target)}</span></div>`}</div>`;
         leafletLayer.bindTooltip(tip, { className: 'custom-tooltip', direction: 'top', sticky: true, opacity: 1 });
         leafletLayer.on('click', () => { if (isAdmin) setSelectedBldg(b); });
       }
@@ -1135,7 +1119,7 @@ function App() {
 
       const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], tooltipAnchor:[sz/2,-sz/2]});
       const m = L.marker([b.lat,b.lng],{icon,interactive:true});
-      const tip = `<div style="padding:3px"><strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><br/><span style="color:#94a3b8;font-size:10px">📍 ${b.neighborhood}</span><div style="margin-top:3px">Status: <span style="color:${s.color};font-weight:600">${s.label}</span></div></div>`;
+      const tip = `<div style="padding:3px"><strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><div style="margin-top:3px">סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div></div>`;
       m.bindTooltip(tip,{className:'custom-tooltip',direction:'top',offset:[0,-sz/2],opacity:1});
       m.on('click',()=>{
         setBuildings(prev=>{
@@ -1172,7 +1156,7 @@ function App() {
           className:'', iconSize:[20,20], iconAnchor:[10,10]
         });
         tempMarkerRef.current = L.marker([clickLat, clickLng],{icon:pingIcon,interactive:false}).addTo(map);
-        showToast('Looking up building data...', 'info');
+        showToast('מחפש נתוני בניין...', 'info');
         const info = await reverseLookup(clickLat, clickLng);
         setAddCoords({ lat: clickLat, lng: clickLng, address: info.address, street: info.street, polygon: info.polygon });
         setAddMode(false);
@@ -1201,7 +1185,7 @@ function App() {
 
   const handleSave = useCallback(async updated => {
     setBuildings(prev => prev.map(b => b.id === updated.id ? updated : b));
-    showToast(`${updated.address} — saved`);
+    showToast(`${updated.address} — נשמר`);
     const client = getSupabaseClient();
     if (client && dbConnected) {
       try { await client.from('buildings').upsert(mapBuildingToDb(updated)); } catch(err) {}
@@ -1210,7 +1194,7 @@ function App() {
 
   const handleDelete = useCallback(async id => {
     setBuildings(prev => prev.filter(b => b.id !== id));
-    showToast('Building deleted', 'info');
+    showToast('הבניין נמחק', 'info');
     const client = getSupabaseClient();
     if (client && dbConnected) {
       try { await client.from('buildings').delete().eq('id', id); } catch(err) {}
@@ -1219,7 +1203,7 @@ function App() {
 
   const handleAdd = useCallback(async newB => {
     setBuildings(prev => [...prev, newB]);
-    showToast(`${newB.address} — added`);
+    showToast(`${newB.address} — נוסף`);
     if (mapRef.current) mapRef.current.flyTo([newB.lat, newB.lng], 17, { duration: 1.2 });
     const client = getSupabaseClient();
     if (client && dbConnected) {
@@ -1230,14 +1214,14 @@ function App() {
   const fixPositionsFromAddresses = async () => {
     if (isFixingPos) return;
     setIsFixingPos(true);
-    showToast(`Fixing ${buildings.length} building positions...`, 'info');
+    showToast(`מעדכן מיקומים עבור ${buildings.length} בניינים...`, 'info');
     const updatedList = [...buildings];
     let countFixed = 0;
     const client = getSupabaseClient();
 
     for (let i = 0; i < updatedList.length; i++) {
       const b = updatedList[i];
-      showToast(`Geocoding (${i+1}/${updatedList.length}): ${b.address}...`, 'info');
+      showToast(`מאותר (${i+1}/${updatedList.length}): ${b.address}...`, 'info');
       const results = await nominatim(b.address);
       if (results && results.length > 0) {
         const top = results[0];
@@ -1255,7 +1239,7 @@ function App() {
 
     saveBuildings(updatedList);
     setIsFixingPos(false);
-    showToast(`Fixed positions for ${countFixed} of ${buildings.length} buildings!`, 'success');
+    showToast(`עודכנו מיקומים בהצלחה עבור ${countFixed} מתוך ${buildings.length} בניינים!`, 'success');
   };
 
   const handleSearchInput = v => {
@@ -1265,7 +1249,8 @@ function App() {
     else { setAcResults([]); setAcLoading(false); }
   };
   const pickAc = s => {
-    setSearchQ(s.display); setShowAc(false); setAcResults([]);
+    const formatted = formatHebrewAddress(s.display);
+    setSearchQ(formatted); setShowAc(false); setAcResults([]);
     if(mapRef.current) mapRef.current.flyTo([s.lat,s.lng],17,{duration:1.2});
   };
 
@@ -1282,52 +1267,52 @@ function App() {
             </div>
             <div>
               <p className="text-xs font-bold text-white leading-none">RedLine</p>
-              <p className="text-[9px] text-slate-400 leading-none mt-1">Netanya · Poleg & Ir Yamim</p>
+              <p className="text-[9px] text-slate-400 leading-none mt-1">נתניה · פרויקט קהילתי</p>
               <p className="text-[8px] text-blue-400 leading-none mt-0.5">lamama1234@gmail.com</p>
             </div>
           </div>
 
           <div className="flex gap-2 flex-wrap pointer-events-auto">
-            <StatCard label="Total Target" value={fmt(stats.total)} icon="target" color="#fbbf24" sub={`${buildings.length} buildings`}/>
-            <StatCard label="Committed" value={fmt(stats.committed)} icon="trending" color="#60a5fa" sub={`${stats.nCommitted} buildings`}/>
-            <StatCard label="Collected" value={fmt(stats.paid)} icon="check" color="#34d399" sub={`${stats.nPaid} paid`}/>
+            <StatCard label="סך הכל יעד" value={fmt(stats.total)} icon="target" color="#fbbf24" sub={`${buildings.length} בניינים`}/>
+            <StatCard label="התחייבו" value={fmt(stats.committed)} icon="trending" color="#60a5fa" sub={`${stats.nCommitted} בניינים`}/>
+            <StatCard label="נאסף בפועל" value={fmt(stats.paid)} icon="check" color="#34d399" sub={`${stats.nPaid} שילמו`}/>
           </div>
 
           {/* MAP VIEW / SATELLITE TOGGLE BUTTON */}
           <div className="glass rounded-2xl p-1 flex items-center gap-1 pointer-events-auto">
-            <button onClick={()=>{setMapType('street');showToast('Switched to Street Map View','info');}}
+            <button onClick={()=>{setMapType('street');showToast('הועבר לתצוגת רחוב','info');}}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${mapType==='street'?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
               <Icon name="map" size={12}/>
-              <span>Street</span>
+              <span>רחוב</span>
             </button>
-            <button onClick={()=>{setMapType('satellite');showToast('Switched to Satellite View','info');}}
+            <button onClick={()=>{setMapType('satellite');showToast('הועבר לתצוגת לווין','info');}}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${mapType==='satellite'?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
               <Icon name="mapPin" size={12}/>
-              <span>Satellite</span>
+              <span>לווין</span>
             </button>
           </div>
 
           <div className="glass rounded-2xl p-1 flex items-center gap-1 pointer-events-auto">
-            <button onClick={()=>{setIsAdmin(false);setAddMode(false);showToast('Switched to Viewer Mode','info');}}
+            <button onClick={()=>{setIsAdmin(false);setAddMode(false);showToast('עברת למצב צפייה','info');}}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${!isAdmin?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
               <Icon name="eye" size={12}/>
-              <span>Viewer</span>
+              <span>צופה</span>
             </button>
             <button onClick={()=>{ if(!isAdmin) setShowPwModal(true); }}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${isAdmin?'text-white':'text-slate-400 hover:text-white'}`}
               style={{background:isAdmin?'linear-gradient(135deg,#3b82f6,#2563eb)':''}}>
               <Icon name="shield" size={12}/>
-              <span>Admin</span>
+              <span>מנהל</span>
             </button>
           </div>
 
           {/* DATABASE SETTINGS ICON - ONLY VISIBLE TO ADMIN */}
           {isAdmin && (
-            <button onClick={()=>setShowConfigModal(true)} title="Database Settings"
+            <button onClick={()=>setShowConfigModal(true)} title="הגדרות בסיס נתונים"
               className="glass rounded-2xl px-3 py-2 flex items-center gap-2 t300 hover:bg-white/15 pointer-events-auto">
               <div className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-400 live-dot' : isOffline ? 'bg-red-400' : 'bg-amber-400 warn-dot'}`}/>
               <span className="text-[11px] font-medium text-slate-300 hidden md:inline">
-                {dbConnected ? (realtimeActive ? 'Cloud Realtime' : 'Cloud DB') : 'Database'}
+                {dbConnected ? (realtimeActive ? 'ענן פעיל בזמן אמת' : 'בסיס נתונים בענן') : 'בסיס נתונים'}
               </span>
               <Icon name="settings" size={12} cls="text-slate-400 hover:text-white"/>
             </button>
@@ -1337,50 +1322,41 @@ function App() {
             <div className="flex gap-2 flex-wrap pointer-events-auto w-full pt-1">
               <button onClick={()=>{ setShowAddModal(true); setAddCoords(null); }}
                 className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 t300">
-                <Icon name="plus" size={12}/> Add Building (Manual)
+                <Icon name="plus" size={12}/> הוסף בניין (ידני)
               </button>
 
               <button onClick={()=>{setAddMode(m=>!m); setAddCoords(null);}}
                 className={`rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold t300 ${addMode?'text-white shadow-lg':'glass text-emerald-400 hover:text-emerald-300'}`}
                 style={{background:addMode?'linear-gradient(135deg,#10b981,#059669)':''}}>
                 <Icon name="mapPin" size={12}/>
-                {addMode ? '🎯 Click map to place…' : 'Add via Map Selection'}
+                {addMode ? '🎯 לחץ על המפה למיקום…' : 'הוספה דרך המפה'}
               </button>
               
               <button onClick={fixPositionsFromAddresses} disabled={isFixingPos}
                 className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 t300 disabled:opacity-40">
                 {isFixingPos ? <div className="w-3 h-3 rounded-full border-2 border-slate-400 border-t-white spin"/> : <Icon name="compass" size={12}/>}
-                {isFixingPos ? 'Fixing Positions...' : 'Fix Positions via Address'}
+                {isFixingPos ? 'מתקן מיקומים...' : 'תקן מיקומים לפי כתובת'}
               </button>
 
               <button onClick={()=>{
-                const hdr = ['ID','Address','Neighborhood','Units','Manager','Status','Target','Paid','Notes'];
-                const rows = buildings.map(b => [b.id,`"${b.address}"`,b.neighborhood,b.units,`"${b.manager}"`,b.status,b.target,b.paid,`"${b.notes}"`]);
+                const hdr = ['ID','Address','Units','Manager','Status','Target','Paid','Notes'];
+                const rows = buildings.map(b => [b.id,`"${b.address}"`,b.units,`"${b.manager}"`,b.status,b.target,b.paid,`"${b.notes}"`]);
                 const csv = [hdr,...rows].map(r=>r.join(',')).join('\n');
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
                 a.download = `redline_${new Date().toISOString().slice(0,10)}.csv`;
                 a.click();
               }} className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 t300">
-                <Icon name="download" size={12}/> Export CSV
+                <Icon name="download" size={12}/> ייצוא CSV
               </button>
               <button onClick={()=>{
-                if(confirm('Reset all buildings to defaults?')){
-                  setBuildings(SEED);
-                  localStorage.removeItem(STORE_KEY);
-                  showToast('Reset to defaults','info');
-                }
-              }} className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 t300">
-                <Icon name="refresh" size={12}/> Reset
-              </button>
-              <button onClick={()=>{
-                if(confirm('Delete ALL buildings?')){
+                if(confirm('למחוק את כל הבניינים?')){
                   setBuildings([]);
                   localStorage.setItem(STORE_KEY, JSON.stringify([]));
-                  showToast('All buildings deleted','info');
+                  showToast('כל הבניינים נמחקו','info');
                 }
               }} className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 t300 btn-danger">
-                <Icon name="trash" size={12}/> Delete All
+                <Icon name="trash" size={12}/> מחק הכל
               </button>
             </div>
           )}
@@ -1389,12 +1365,12 @@ function App() {
         {/* PROGRESS BAR */}
         <div className="glass rounded-2xl p-3 mt-2 max-w-xl pointer-events-auto">
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Collection Progress</span>
-            <span className="text-[10px] font-bold text-white">{fmtPct(stats.pPaid)} collected</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">התקדמות גבייה</span>
+            <span className="text-[10px] font-bold text-white">{fmtPct(stats.pPaid)} נאספו</span>
           </div>
           <div className="h-2 bg-white/10 rounded-full overflow-hidden relative">
-            <div className="absolute top-0 left-0 h-full rounded-full t300" style={{width:`${stats.pComm}%`,background:'rgba(96,165,250,0.45)'}}/>
-            <div className="absolute top-0 left-0 h-full rounded-full t300" style={{width:`${stats.pPaid}%`,background:'linear-gradient(90deg,#10b981,#34d399)'}}/>
+            <div className="absolute top-0 right-0 h-full rounded-full t300" style={{width:`${stats.pComm}%`,background:'rgba(96,165,250,0.45)'}}/>
+            <div className="absolute top-0 right-0 h-full rounded-full t300" style={{width:`${stats.pPaid}%`,background:'linear-gradient(90deg,#10b981,#34d399)'}}/>
           </div>
         </div>
       </div>
@@ -1404,8 +1380,8 @@ function App() {
         <div className="relative mb-2 pointer-events-auto">
           <div className="glass rounded-2xl p-2">
             <div className="flex items-center gap-2">
-              <Icon name="search" size={14} cls="text-slate-400 ml-1 flex-shrink-0"/>
-              <input type="text" placeholder="Search address..." value={searchQ}
+              <Icon name="search" size={14} cls="text-slate-400 mr-1 flex-shrink-0"/>
+              <input type="text" placeholder="חיפוש כתובת..." value={searchQ}
                 onChange={e=>handleSearchInput(e.target.value)}
                 onFocus={()=>searchQ.length>=2&&setShowAc(true)}
                 onBlur={()=>setTimeout(()=>setShowAc(false),160)}
@@ -1426,7 +1402,7 @@ function App() {
         </div>
 
         <div className="flex gap-1.5 mb-2 flex-wrap pointer-events-auto">
-          {[['','All'],['uncommitted','Uncommitted'],['committed','Committed'],['paid','Paid']].map(([val,lbl])=>(
+          {[['','הכל'],['uncommitted','לא התחייב'],['committed','התחייב'],['paid','שילם']].map(([val,lbl])=>(
             <button key={val} onClick={()=>setFilterStatus(val)}
               className={`px-2.5 py-1 rounded-full text-[10px] font-semibold t300 ${filterStatus===val?'text-white shadow-lg':'glass text-slate-400 hover:text-white'}`}
               style={{background:filterStatus===val?(val===''?'linear-gradient(135deg,#6366f1,#4f46e5)':val==='uncommitted'?'#475569':val==='committed'?'#2563eb':'#059669'):''}}>
@@ -1438,7 +1414,7 @@ function App() {
         <button onClick={()=>setShowList(!showList)}
           className="glass w-full rounded-xl py-2 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:text-white t300 mb-2 pointer-events-auto">
           <Icon name="building2" size={13}/>
-          {showList?'Hide':'Show'} Building List
+          {showList?'הסתר':'הצג'} רשימת בניינים
           <Icon name="chevron" size={12} cls={`t300 ${showList?'rotate-180':''}`}/>
         </button>
 
@@ -1451,23 +1427,23 @@ function App() {
       </div>
 
       {/* LEGEND */}
-      <div className="absolute bottom-8 left-3 z-20 glass rounded-2xl p-3 pointer-events-auto">
-        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Legend</p>
+      <div className="absolute bottom-8 right-3 z-20 glass rounded-2xl p-3 pointer-events-auto">
+        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mb-2">מקרא</p>
         {Object.entries(STATUS).map(([key,s])=>(
           <div key={key} className="flex items-center gap-2 mb-1.5 last:mb-0">
             <div className="w-3 h-3 rounded-sm border-2" style={{background:s.fill,borderColor:s.color,opacity:key==='uncommitted'?.5:1}}/>
             <span className="text-[10px] text-slate-300">{s.label}</span>
-            <span className="text-[9px] text-slate-600 ml-auto">{buildings.filter(b=>b.status===key).length}</span>
+            <span className="text-[9px] text-slate-600 mr-auto">{buildings.filter(b=>b.status===key).length}</span>
           </div>
         ))}
       </div>
 
       {/* ADMIN MODE BADGE */}
       {isAdmin && (
-        <div className="absolute bottom-8 right-16 z-25 pointer-events-none">
+        <div className="absolute bottom-8 left-16 z-25 pointer-events-none">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-xl"
                style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}>
-            <Icon name="shield" size={11}/> ADMIN MODE
+            <Icon name="shield" size={11}/> מצב מנהל
           </div>
         </div>
       )}
@@ -1482,8 +1458,8 @@ function App() {
       )}
 
       {/* MODALS - ADMIN ONLY */}
-      {isAdmin && showConfigModal && <ConfigModal onClose={()=>setShowConfigModal(false)} onSaved={()=>showToast('Supabase settings updated','success')}/>}
-      {showPwModal && <AdminPasswordModal onSuccess={()=>{ setIsAdmin(true); setShowPwModal(false); showToast('Admin mode unlocked','info'); }} onCancel={()=>setShowPwModal(false)}/>}
+      {isAdmin && showConfigModal && <ConfigModal onClose={()=>setShowConfigModal(false)} onSaved={()=>showToast('הגדרות Supabase עודכנו','success')}/>}
+      {showPwModal && <AdminPasswordModal onSuccess={()=>{ setIsAdmin(true); setShowPwModal(false); showToast('מצב מנהל הופעל','info'); }} onCancel={()=>setShowPwModal(false)}/>}
       {isAdmin && selectedBldg && <BuildingModal building={selectedBldg} onClose={()=>setSelectedBldg(null)} onSave={handleSave} onDelete={handleDelete}/>}
       {isAdmin && showAddModal && <AddBuildingModal initialLat={addCoords?.lat} initialLng={addCoords?.lng} initialAddress={addCoords?.address} initialStreet={addCoords?.street} initialPolygon={addCoords?.polygon} onClose={()=>{ setShowAddModal(false); setAddCoords(null); }} onAdd={handleAdd}/>}
     </div>
