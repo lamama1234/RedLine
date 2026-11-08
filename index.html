@@ -176,11 +176,9 @@ const STATUS = {
 const fmt = n => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(n);
 const fmtPct = n => `${Math.min(100,Math.round(n))}%`;
 
-// Format address cleanly in Hebrew format: "Street Number" (e.g., "דודו דותן 6")
 function formatHebrewAddress(rawAddress) {
   if (!rawAddress) return '';
   const parts = rawAddress.split(',').map(s => s.trim());
-  // Remove trailing city or neighborhood parts if present (e.g. "עיר ימים", "נתניה")
   const cleanParts = parts.filter(p => p !== 'נתניה' && p !== 'עיר ימים' && p !== 'פולג' && p !== 'התקווה');
   if (cleanParts.length >= 2) {
     const maybeNum = cleanParts[0];
@@ -239,7 +237,7 @@ function loadBuildings() {
     const r = localStorage.getItem(STORE_KEY);
     if (r) return JSON.parse(r);
   } catch {}
-  return []; // Start empty without hardcoded defaults
+  return [];
 }
 function saveBuildings(data) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch {}
@@ -698,7 +696,7 @@ const AddBuildingModal = ({initialLat, initialLng, initialAddress, initialStreet
   const [units,        setUnits]        = useState(40);
   const [manager,      setManager]      = useState('');
   const [target,       setTarget]       = useState(1000);
-  const [status,       setStatus]       = useState('committed'); // Default to committed
+  const [status,       setStatus]       = useState('committed');
   const [lat,          setLat]          = useState(initialLat ? initialLat.toFixed(6) : '');
   const [lng,          setLng]          = useState(initialLng ? initialLng.toFixed(6) : '');
   const [acQuery,      setAcQuery]      = useState(initialAddress || '');
@@ -1268,7 +1266,8 @@ function App() {
             <div>
               <p className="text-xs font-bold text-white leading-none">RedLine</p>
               <p className="text-[9px] text-slate-400 leading-none mt-1">נתניה · פרויקט קהילתי</p>
-              <p className="text-[8px] text-blue-400 leading-none mt-0.5">lamama1234@gmail.com</p>
+              <p className="text-[8px] text-slate-300 leading-none mt-0.5">יוצר: רוני טוטנאור</p>
+              <p className="text-[8px] mt-0.5"><a href="mailto:lamama1234@gmail.com" className="text-blue-400 hover:underline pointer-events-auto">lamama1234@gmail.com</a></p>
             </div>
           </div>
 
