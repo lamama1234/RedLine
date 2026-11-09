@@ -151,6 +151,9 @@ const CENTER        = [32.2758, 34.8478];
 const ZOOM          = 16;
 const STORE_KEY     = 'redline_v3';
 const SUPABASE_KEY  = 'redline_supabase_config_v1';
+const SESSION_KEY   = 'redline_session_v1';
+const DEFAULT_PASS  = { user: 'Vaad1974', admin: 'KavAdom1', super: 'KavAdom2' };
+const ROLE_LABEL    = { user: 'משתמש', admin: 'מנהל', super: 'מנהל על' };
 
 function getEnvConfig() {
   const runtime = window.ENV || {};
@@ -159,7 +162,9 @@ function getEnvConfig() {
   return {
     url: saved.url || runtime.VITE_SUPABASE_URL || 'https://vtopvpifpaobabfofdug.supabase.co',
     anonKey: saved.anonKey || runtime.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0b3B2cGlmcGFvYmFiZm9mZHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MTA4NjAsImV4cCI6MjEwOTI4Njg2MH0.mEDvVkh9y3jkFm2s_EnRTJYI2wm0xhMri_y7rMuAt34',
-    adminPasscode: runtime.VITE_ADMIN_PASSCODE || saved.adminPasscode || 'KavAdom1',
+    userPasscode:  runtime.VITE_USER_PASSCODE  || saved.userPasscode  || DEFAULT_PASS.user,
+    adminPasscode: runtime.VITE_ADMIN_PASSCODE || saved.adminPasscode || DEFAULT_PASS.admin,
+    superPasscode: runtime.VITE_SUPER_PASSCODE || saved.superPasscode || DEFAULT_PASS.super,
   };
 }
 
@@ -285,6 +290,25 @@ function saveBuildings(data) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch {}
 }
 
+/* ---- Access control: the passcode entered determines the role ---- */
+function resolveRole(pass) {
+  if (!pass) return null;
+  const c = getEnvConfig();
+  if (pass === c.superPasscode) return 'super';
+  if (pass === c.adminPasscode) return 'admin';
+  if (pass === c.userPasscode)  return 'user';
+  return null;
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || '{}').pass || ''; } catch { return ''; }
+}
+function saveSession(pass) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ pass })); } catch {}
+}
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+}
+
 async function reverseLookup(lat, lng) {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&polygon_geojson=1&accept-language=he,en`;
@@ -357,6 +381,7 @@ const PATHS = {
   compass:   'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm4.243-14.243l-6.364 2.121-2.121 6.364 6.364-2.121 2.121-6.364z',
   edit:      'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',
   map:       'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zm7-2v16m8-14v16',
+  logout:    'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9',
 };
 const Icon = ({name,size=16,cls=''}) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
@@ -381,7 +406,7 @@ const Badge = ({status}) => {
   return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.badgeClass}`}>{s.label}</span>;
 };
 
-const AdminPasswordModal = ({onSuccess, onCancel}) => {
+const LoginScreen = ({onLogin}) => {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState(false);
   const [shake, setShake] = useState(false);
@@ -390,61 +415,51 @@ const AdminPasswordModal = ({onSuccess, onCancel}) => {
 
   const submit = e => {
     e.preventDefault();
-    if(pw === getEnvConfig().adminPasscode) { onSuccess(); }
-    else {
+    if (!onLogin(pw.trim())) {
       setErr(true); setShake(true); setPw('');
       setTimeout(()=>setShake(false), 600);
     }
   };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
-         onClick={e=>e.target===e.currentTarget&&onCancel()} style={{pointerEvents:'all'}}>
-      <div className="glass modal-panel w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden fade-in-up"
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+         style={{pointerEvents:'all', background:'rgba(2,6,23,0.45)'}}>
+      <div className="glass w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden fade-in-up"
            style={{border:'1px solid rgba(255,255,255,0.15)',animation: shake?'shake 0.5s cubic-bezier(.36,.07,.19,.97)':''}}>
-        <div className="p-5 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}>
-              <Icon name="lock" size={14} cls="text-white"/>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">גישת מנהל</p>
-              <p className="text-[10px] text-slate-500">הקלד סיסמה להמשך</p>
-            </div>
+        <div className="p-5 border-b border-white/10 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-red-500 to-red-600">
+            <Icon name="lock" size={15} cls="text-white"/>
           </div>
-          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white t300" style={{pointerEvents:'all'}}>
-            <Icon name="x" size={16}/>
-          </button>
+          <div>
+            <p className="text-sm font-bold text-white">RedLine</p>
+            <p className="text-[10px] text-slate-400">הכניסה לאתר מוגבלת — הקלד סיסמה להמשך</p>
+          </div>
         </div>
         <form onSubmit={submit} className="p-5 space-y-4">
           <div>
             <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">סיסמה</p>
-            <input ref={ref} type="password" value={pw}
+            <input ref={ref} type="password" value={pw} autoComplete="current-password"
               onChange={e=>{setPw(e.target.value);setErr(false);}}
-              placeholder="הקלד סיסמת מנהל..."
-              style={{pointerEvents:'all'}}/>
+              placeholder="הקלד סיסמה..." style={{pointerEvents:'all'}}/>
             {err && <p className="text-[11px] text-red-400 mt-1.5 flex items-center gap-1"><Icon name="x" size={11}/> סיסמה שגויה.</p>}
           </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={onCancel} style={{pointerEvents:'all'}}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 t300">
-              ביטול
-            </button>
-            <button type="submit" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white t300">
-              אישור
-            </button>
-          </div>
+          <button type="submit" style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)',pointerEvents:'all'}}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white t300">
+            כניסה
+          </button>
         </form>
       </div>
     </div>
   );
 };
 
-const ConfigModal = ({ onClose, onSaved }) => {
+const ConfigModal = ({ role, onClose, onSaved }) => {
   const current = getEnvConfig();
   const [url, setUrl] = useState(current.url || '');
   const [anonKey, setAnonKey] = useState(current.anonKey || '');
-  const [adminPasscode, setAdminPasscode] = useState(current.adminPasscode || 'KavAdom1');
+  const [userPasscode,  setUserPasscode]  = useState(current.userPasscode  || DEFAULT_PASS.user);
+  const [adminPasscode, setAdminPasscode] = useState(current.adminPasscode || DEFAULT_PASS.admin);
+  const [superPasscode, setSuperPasscode] = useState(current.superPasscode || DEFAULT_PASS.super);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
 
@@ -469,11 +484,14 @@ const ConfigModal = ({ onClose, onSaved }) => {
   };
 
   const handleSave = () => {
-    const config = {
-      url: url.trim(),
-      anonKey: anonKey.trim(),
-      adminPasscode: adminPasscode.trim() || 'KavAdom1'
-    };
+    let savedRaw = {};
+    try { savedRaw = JSON.parse(localStorage.getItem(SUPABASE_KEY) || '{}'); } catch(e) {}
+    const config = { ...savedRaw, url: url.trim(), anonKey: anonKey.trim() };
+    if (role === 'super') {
+      config.userPasscode  = userPasscode.trim()  || DEFAULT_PASS.user;
+      config.adminPasscode = adminPasscode.trim() || DEFAULT_PASS.admin;
+      config.superPasscode = superPasscode.trim() || DEFAULT_PASS.super;
+    }
     try {
       localStorage.setItem(SUPABASE_KEY, JSON.stringify(config));
     } catch(e) {}
@@ -519,13 +537,20 @@ const ConfigModal = ({ onClose, onSaved }) => {
               placeholder="eyJhbGciOiJIUzI1Ni..." style={{pointerEvents:'all'}}/>
           </div>
 
-          <div>
-            <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">
-              סיסמת מנהל
-            </label>
-            <input type="text" value={adminPasscode} onChange={e=>setAdminPasscode(e.target.value)}
-              placeholder="ברירת מחדל: KavAdom1" style={{pointerEvents:'all'}}/>
-          </div>
+          {role === 'super' && (
+            <div className="space-y-3.5">
+              {[['סיסמת משתמש', userPasscode, setUserPasscode, DEFAULT_PASS.user],
+                ['סיסמת מנהל', adminPasscode, setAdminPasscode, DEFAULT_PASS.admin],
+                ['סיסמת מנהל על', superPasscode, setSuperPasscode, DEFAULT_PASS.super]].map(([lbl,val,setVal,def])=>(
+                <div key={lbl}>
+                  <label className="text-[10px] font-semibold text-slate-400 mb-1 block uppercase tracking-wider">{lbl}</label>
+                  <input type="text" value={val} onChange={e=>setVal(e.target.value)}
+                    placeholder={`ברירת מחדל: ${def}`} style={{pointerEvents:'all'}}/>
+                </div>
+              ))}
+              <p className="text-[10px] text-slate-500">הסיסמאות נשמרות בדפדפן זה בלבד. לשינוי לכל המשתמשים יש לעדכן בקוד.</p>
+            </div>
+          )}
 
           {testResult && (
             <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${testResult.ok ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'}`}>
@@ -899,9 +924,10 @@ const SidebarList = ({buildings, filterStatus, searchQ, isAdmin, onBuildingClick
 };
 
 function App() {
-  const [buildings,      setBuildings]      = useState(loadBuildings);
-  const [isAdmin,        setIsAdmin]        = useState(false);
-  const [showPwModal,    setShowPwModal]    = useState(false);
+  const [buildings,      setBuildings]      = useState(() => resolveRole(loadSession()) ? loadBuildings() : []);
+  const [role,           setRole]           = useState(() => resolveRole(loadSession()));
+  const isAdmin = role === 'admin' || role === 'super';
+  const isSuper = role === 'super';
   const [showConfigModal,setShowConfigModal]= useState(false);
   const [selectedBldg,   setSelectedBldg]   = useState(null);
   const [addMode,        setAddMode]        = useState(false);
@@ -960,6 +986,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!role) {            // not signed in: nothing is fetched or subscribed
+      setDbConnected(false);
+      setRealtimeActive(false);
+      return;
+    }
     const client = getSupabaseClient();
     if (!client) {
       setDbConnected(false);
@@ -1026,7 +1057,7 @@ function App() {
       isMounted = false;
       if (channel && client) client.removeChannel(channel);
     };
-  }, []);
+  }, [role]);
 
   useEffect(()=>{
     const map = L.map('map',{center:CENTER, zoom:ZOOM, minZoom:13, maxZoom:18, zoomControl:false, attributionControl:false});
@@ -1196,7 +1227,7 @@ function App() {
     }
   },[showAddModal]);
 
-  useEffect(()=>{ saveBuildings(buildings); },[buildings]);
+  useEffect(()=>{ if (role) saveBuildings(buildings); },[buildings, role]);
 
   const handleSave = useCallback(async updated => {
     setBuildings(prev => prev.map(b => b.id === updated.id ? updated : b));
@@ -1227,7 +1258,7 @@ function App() {
   }, [showToast, dbConnected]);
 
   const fixPositionsFromAddresses = async () => {
-    if (isFixingPos) return;
+    if (!isSuper || isFixingPos) return;
     setIsFixingPos(true);
     showToast(`מעדכן מיקומים עבור ${buildings.length} בניינים...`, 'info');
     const updatedList = [...buildings];
@@ -1257,6 +1288,37 @@ function App() {
     showToast(`עודכנו מיקומים בהצלחה עבור ${countFixed} מתוך ${buildings.length} בניינים!`, 'success');
   };
 
+  const handleLogin = pass => {
+    const r = resolveRole(pass);
+    if (!r) return false;
+    saveSession(pass);
+    setBuildings(loadBuildings());
+    setRole(r);
+    showToast(`ברוך הבא — ${ROLE_LABEL[r]}`, 'info');
+    return true;
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    setRole(null);
+    setBuildings([]);
+    setSelectedBldg(null);
+    setShowAddModal(false);
+    setShowConfigModal(false);
+    setAddMode(false);
+    setAddCoords(null);
+    setShowList(false);
+    setSearchQ('');
+    setFilterStatus('');
+  };
+
+  const onConfigSaved = () => {
+    // keep the current session valid if its passcode was changed
+    const c = getEnvConfig();
+    saveSession(role === 'super' ? c.superPasscode : role === 'admin' ? c.adminPasscode : c.userPasscode);
+    showToast('הגדרות Supabase עודכנו', 'success');
+  };
+
   const handleSearchInput = v => {
     setSearchQ(v); setShowAc(true);
     clearTimeout(acTimer.current);
@@ -1271,6 +1333,8 @@ function App() {
 
   return (
     <div style={{position:'fixed',inset:0,pointerEvents:'none',zIndex:10}}>
+
+      {role && (<>
 
       {/* TOP BAR */}
       <div className="absolute top-0 left-0 right-0 z-20 px-3 pt-3 pointer-events-none">
@@ -1309,16 +1373,15 @@ function App() {
           </div>
 
           <div className="glass rounded-2xl p-1 flex items-center gap-1 pointer-events-auto">
-            <button onClick={()=>{setIsAdmin(false);setAddMode(false);showToast('עברת למצב צפייה','info');}}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${!isAdmin?'bg-white/15 text-white':'text-slate-400 hover:text-white'}`}>
-              <Icon name="eye" size={12}/>
-              <span>צופה</span>
-            </button>
-            <button onClick={()=>{ if(!isAdmin) setShowPwModal(true); }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 ${isAdmin?'text-white':'text-slate-400 hover:text-white'}`}
-              style={{background:isAdmin?'linear-gradient(135deg,#3b82f6,#2563eb)':''}}>
-              <Icon name="shield" size={12}/>
-              <span>מנהל</span>
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white"
+              style={{background: role==='super' ? 'linear-gradient(135deg,#8b5cf6,#6d28d9)' : role==='admin' ? 'linear-gradient(135deg,#3b82f6,#2563eb)' : 'rgba(255,255,255,0.15)'}}>
+              <Icon name={role==='user' ? 'eye' : 'shield'} size={12}/>
+              <span>{ROLE_LABEL[role]}</span>
+            </div>
+            <button onClick={handleLogout} title="התנתק"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold t300 text-slate-400 hover:text-white">
+              <Icon name="logout" size={12}/>
+              <span>התנתק</span>
             </button>
           </div>
 
@@ -1348,11 +1411,11 @@ function App() {
                 {addMode ? '🎯 לחץ על המפה למיקום…' : 'הוספה דרך המפה'}
               </button>
 
-              <button onClick={fixPositionsFromAddresses} disabled={isFixingPos}
+              {isSuper && <button onClick={fixPositionsFromAddresses} disabled={isFixingPos}
                 className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 t300 disabled:opacity-40">
                 {isFixingPos ? <div className="w-3 h-3 rounded-full border-2 border-slate-400 border-t-white spin"/> : <Icon name="compass" size={12}/>}
                 {isFixingPos ? 'מתקן מיקומים...' : 'תקן מיקומים לפי כתובת'}
-              </button>
+              </button>}
 
               <button onClick={()=>{
                 const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
@@ -1366,7 +1429,8 @@ function App() {
               }} className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 t300">
                 <Icon name="download" size={12}/> ייצוא CSV
               </button>
-              <button onClick={()=>{
+              {isSuper && <button onClick={()=>{
+                if(!isSuper) return;
                 if(confirm('למחוק את כל הבניינים?')){
                   setBuildings([]);
                   localStorage.setItem(STORE_KEY, JSON.stringify([]));
@@ -1374,7 +1438,7 @@ function App() {
                 }
               }} className="glass rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 t300 btn-danger">
                 <Icon name="trash" size={12}/> מחק הכל
-              </button>
+              </button>}
             </div>
           )}
         </div>
@@ -1460,7 +1524,7 @@ function App() {
         <div className="absolute bottom-8 left-16 z-25 pointer-events-none">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-xl"
                style={{background:'linear-gradient(135deg,#3b82f6,#2563eb)'}}>
-            <Icon name="shield" size={11}/> מצב מנהל
+            <Icon name="shield" size={11}/> {isSuper ? 'מצב מנהל על' : 'מצב מנהל'}
           </div>
         </div>
       )}
@@ -1475,10 +1539,13 @@ function App() {
       )}
 
       {/* MODALS - ADMIN ONLY */}
-      {isAdmin && showConfigModal && <ConfigModal onClose={()=>setShowConfigModal(false)} onSaved={()=>showToast('הגדרות Supabase עודכנו','success')}/>}
-      {showPwModal && <AdminPasswordModal onSuccess={()=>{ setIsAdmin(true); setShowPwModal(false); showToast('מצב מנהל הופעל','info'); }} onCancel={()=>setShowPwModal(false)}/>}
+      {isAdmin && showConfigModal && <ConfigModal role={role} onClose={()=>setShowConfigModal(false)} onSaved={onConfigSaved}/>}
       {isAdmin && selectedBldg && <BuildingModal building={selectedBldg} onClose={()=>setSelectedBldg(null)} onSave={handleSave} onDelete={handleDelete}/>}
       {isAdmin && showAddModal && <AddBuildingModal initialLat={addCoords?.lat} initialLng={addCoords?.lng} initialAddress={addCoords?.address} initialStreet={addCoords?.street} initialPolygon={addCoords?.polygon} onClose={()=>{ setShowAddModal(false); setAddCoords(null); }} onAdd={handleAdd}/>}
+      </>)}
+
+      {/* LOGIN GATE: without a valid password the map stays empty */}
+      {!role && <LoginScreen onLogin={handleLogin}/>}
     </div>
   );
 }
