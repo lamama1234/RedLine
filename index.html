@@ -1170,6 +1170,13 @@ const tip = `
       // הגדרת עוגן מרכזי מובהק ללא sticky
       const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2, sz/2], tooltipAnchor:[0, -r]});
       const m = L.marker([b.lat,b.lng],{icon,interactive:true});
+      m.bindTooltip(tip, {
+  className: 'custom-tooltip',
+  direction: 'top',
+  sticky: true,       // follows the cursor
+  offset: [0, -8],
+  opacity: 1
+});
       const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
 const tip = `
   <div style="direction:rtl;text-align:right;padding:4px">
