@@ -48,6 +48,8 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
       text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
       text-align: right; direction: rtl;
+      transform: translate(-50%, -100%) !important; /* מרכוז מושלם מעל הנקודה */
+      margin-top: -8px !important;
     }
     .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(10,15,28,0.97) !important; }
 
@@ -1117,12 +1119,12 @@ function App() {
       const ip = b.status==='paid', ic = b.status==='committed';
       const svg = `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" xmlns="http://www.w3.org/2000/svg">${ip?`<circle cx="${sz/2}" cy="${sz/2}" r="${sz/2-1}" fill="${s.fill}" fill-opacity="0.1" stroke="${s.color}" stroke-width="1" stroke-dasharray="3 2"/>`:''}<circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="${s.fill}" fill-opacity="${ip?.55:ic?.32:.08}" stroke="${s.color}" stroke-width="${b.status==='uncommitted'?1.4:2.2}" stroke-opacity="${b.status==='uncommitted'?.5:.9}"/>${ip?`<path d="M${sz/2-4},${sz/2} l3,3 l5.5,-5.5" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`:ic?`<circle cx="${sz/2}" cy="${sz/2}" r="4.5" fill="${s.color}" fill-opacity="0.85"/>`:`<circle cx="${sz/2}" cy="${sz/2}" r="3" fill="${s.color}" fill-opacity="0.5"/>`}</svg>`;
 
-      // Anchor fixed to center-top [0, -r] instead of [sz/2, -sz/2]
-      const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], tooltipAnchor:[0, -r]});
+      // איפוס ה-tooltipAnchor כדי שיתבסס על ה-CSS הממורכז החדש
+      const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2, sz/2], tooltipAnchor:[0, -(r + 8)]});
       const m = L.marker([b.lat,b.lng],{icon,interactive:true});
       const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
       const tip = `<div style="padding:3px"><strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><div style="margin-top:3px">${paidStr}</div></div>`;
-      m.bindTooltip(tip, {className:'custom-tooltip', direction:'top', offset:[0, -r], opacity:1});
+      m.bindTooltip(tip,{className:'custom-tooltip', direction:'top', offset:[0, 0], opacity:1});
       m.on('click',()=>{
         setBuildings(prev=>{
           const cur=prev.find(x=>x.id===b.id);
