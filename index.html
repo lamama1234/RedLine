@@ -1090,7 +1090,9 @@ function App() {
         const s = STATUS[b.status];
         const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
         const tip = `<div style="padding:4px"><strong style="color:#f1f5f9;font-size:12px;">${b.address}</strong><div style="margin-top:4px;">${paidStr}</div></div>`;
-        leafletLayer.bindTooltip(tip, { className: 'custom-tooltip', direction: 'top', sticky: true, opacity: 1 });
+        
+        // הוספת permanent: false וביטול sticky כדי שהטולטיפ יופיע בדיוק מעל הפוליגון של הבניין כשמרחפים עליו
+        leafletLayer.bindTooltip(tip, { className: 'custom-tooltip', direction: 'top', sticky: false, opacity: 1 });
         leafletLayer.on('click', () => { if (isAdmin) setSelectedBldg(b); });
       }
     });
@@ -1117,14 +1119,14 @@ function App() {
       const ip = b.status==='paid', ic = b.status==='committed';
       const svg = `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" xmlns="http://www.w3.org/2000/svg">${ip?`<circle cx="${sz/2}" cy="${sz/2}" r="${sz/2-1}" fill="${s.fill}" fill-opacity="0.1" stroke="${s.color}" stroke-width="1" stroke-dasharray="3 2"/>`:''}<circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="${s.fill}" fill-opacity="${ip?.55:ic?.32:.08}" stroke="${s.color}" stroke-width="${b.status==='uncommitted'?1.4:2.2}" stroke-opacity="${b.status==='uncommitted'?.5:.9}"/>${ip?`<path d="M${sz/2-4},${sz/2} l3,3 l5.5,-5.5" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`:ic?`<circle cx="${sz/2}" cy="${sz/2}" r="4.5" fill="${s.color}" fill-opacity="0.85"/>`:`<circle cx="${sz/2}" cy="${sz/2}" r="3" fill="${s.color}" fill-opacity="0.5"/>`}</svg>`;
 
-      // הגדרת עוגן מדויק לפי רדיוס האייקון ללא סטייה
+      // הגדרת עוגן מרכזי מובהק ללא sticky
       const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2, sz/2], tooltipAnchor:[0, -r]});
       const m = L.marker([b.lat,b.lng],{icon,interactive:true});
       const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
       const tip = `<div style="padding:3px"><strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><div style="margin-top:3px">${paidStr}</div></div>`;
       
-      // החזרת ה-tooltip עם sticky כדי שיופיע בצמוד לעכבר/לחיצה על הבניין
-      m.bindTooltip(tip,{className:'custom-tooltip', direction:'top', sticky:true, opacity:1});
+      // ביטול sticky: false כדי שהטולטיפ יישאר יציב מעל הסימון ולא יזוז עם העכבר
+      m.bindTooltip(tip,{className:'custom-tooltip', direction:'top', sticky:false, opacity:1});
       m.on('click',()=>{
         setBuildings(prev=>{
           const cur=prev.find(x=>x.id===b.id);
