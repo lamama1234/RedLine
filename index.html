@@ -65,7 +65,8 @@
     pointer-events: none !important;
     }
 
-#map { direction: ltr; }
+    #map { direction: ltr; }
+    .custom-tooltip { direction: ltr; text-align: right; }  /* container stays LTR */
 
 /* belt-and-suspenders: anchor tooltips to the left like Leaflet expects */
 
@@ -1122,14 +1123,11 @@ onEachFeature: (feature, leafletLayer) => {
             ${s.label}
            </span></div>`;
 
-    const tip = `
-        <div style="padding:4px">
-            <strong style="color:#f1f5f9;font-size:12px">
-                ${b.address}
-            </strong>
-            <div style="margin-top:4px">${paidStr}</div>
-        </div>
-    `;
+const tip = `
+  <div style="direction:rtl;text-align:right;padding:4px">
+    <strong style="color:#f1f5f9;font-size:12px">${b.address}</strong>
+    <div style="margin-top:4px">${paidStr}</div>
+  </div>`;
 
     // Attach tooltip to the building polygon
     leafletLayer.bindTooltip(tip, {
@@ -1173,8 +1171,11 @@ onEachFeature: (feature, leafletLayer) => {
       const icon = L.divIcon({html:svg, className:'', iconSize:[sz,sz], iconAnchor:[sz/2, sz/2], tooltipAnchor:[0, -r]});
       const m = L.marker([b.lat,b.lng],{icon,interactive:true});
       const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
-      const tip = `<div style="padding:3px"><strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><div style="margin-top:3px">${paidStr}</div></div>`;
-      
+const tip = `
+  <div style="direction:rtl;text-align:right;padding:4px">
+    <strong style="color:#f1f5f9;font-size:12px">${b.address}</strong>
+    <div style="margin-top:4px">${paidStr}</div>
+  </div>`;      
       // ביטול sticky: false כדי שהטולטיפ יישאר יציב מעל הסימון ולא יזוז עם העכבר
 
       m.on('click',()=>{
