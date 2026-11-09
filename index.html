@@ -50,7 +50,20 @@
       text-align: right; direction: rtl;
     }
     .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(10,15,28,0.97) !important; }
-    .custom-tooltip {  pointer-events: none !important;  direction: rtl;  text-align: right;}
+    .custom-tooltip {
+    background: rgba(10,15,28,0.97) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-radius: 10px !important;
+    color: #f1f5f9 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    white-space: nowrap;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+    text-align: right;
+    direction: rtl;
+    pointer-events: none !important;
+    }
 
 
     .badge-uncommitted { background: rgba(100,116,139,0.25); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); }
@@ -1086,19 +1099,47 @@ function App() {
         const s = STATUS[b.status];
         return { color: s.color, weight: b.status === 'uncommitted' ? 2 : 3, fillColor: s.fill, fillOpacity: s.fillOpacity + 0.1, opacity: 0.95 };
       },
-      onEachFeature: (feature, leafletLayer) => {
-        const b = buildings.find(x => x.id === feature.properties.buildingId);
-        if (!b) return;
-        const s = STATUS[b.status];
-        const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
-        const tip = `<div style="padding:4px"><strong style="color:#f1f5f9;font-size:12px;">${b.address}</strong><div style="margin-top:4px;">${paidStr}</div></div>`;
- 
-        leafletLayer.bindTooltip(tip, {  className: 'custom-tooltip',  direction: 'top',  sticky: true,  offset: [0, -12],  opacity: 1});
 
-        // הוספת permanent: false וביטול sticky כדי שהטולטיפ יופיע בדיוק מעל הפוליגון של הבניין כשמרחפים עליו
-        // Tooltip is handled by the marker, not the polygon.
-        leafletLayer.on('click', () => { if (isAdmin) setSelectedBldg(b); });
-      }
+onEachFeature: (feature, leafletLayer) => {
+    const b = buildings.find(
+        x => x.id === feature.properties.buildingId
+    );
+
+    if (!b) return;
+
+    const s = STATUS[b.status];
+
+    const paidStr = b.status === 'paid'
+        ? `<div>שולם <span style="color:#34d399;font-weight:700">
+            ${Number(b.paid).toLocaleString('he-IL')} ש"ח
+           </span></div>`
+        : `<div>סטטוס: <span style="color:${s.color};font-weight:600">
+            ${s.label}
+           </span></div>`;
+
+    const tip = `
+        <div style="padding:4px">
+            <strong style="color:#f1f5f9;font-size:12px">
+                ${b.address}
+            </strong>
+            <div style="margin-top:4px">${paidStr}</div>
+        </div>
+    `;
+
+    // Attach tooltip to the building polygon
+    leafletLayer.bindTooltip(tip, {
+        className: 'custom-tooltip',
+        direction: 'top',
+        sticky: true,
+        offset: [0, -12],
+        opacity: 1
+    });
+
+    leafletLayer.on('click', () => {
+        if (isAdmin) setSelectedBldg(b);
+    });
+}
+
     });
     layer.addTo(map);
     osmLayerRef.current = layer;
