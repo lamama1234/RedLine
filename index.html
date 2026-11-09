@@ -52,6 +52,7 @@
     .leaflet-tooltip-top.custom-tooltip::before { border-top-color: rgba(10,15,28,0.97) !important; }
     .custom-tooltip {  pointer-events: none !important;  direction: rtl;  text-align: right;}
 
+
     .badge-uncommitted { background: rgba(100,116,139,0.25); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); }
     .badge-committed   { background: rgba(59,130,246,0.25); color: #93c5fd; border: 1px solid rgba(59,130,246,0.45); }
     .badge-paid        { background: rgba(16,185,129,0.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.45); }
@@ -1091,7 +1092,9 @@ function App() {
         const s = STATUS[b.status];
         const paidStr = b.status === 'paid' ? `<div>שולם <span style="color:#34d399;font-weight:700">${Number(b.paid).toLocaleString('he-IL')} ש"ח</span></div>` : `<div>סטטוס: <span style="color:${s.color};font-weight:600">${s.label}</span></div>`;
         const tip = `<div style="padding:4px"><strong style="color:#f1f5f9;font-size:12px;">${b.address}</strong><div style="margin-top:4px;">${paidStr}</div></div>`;
-        
+ 
+        leafletLayer.bindTooltip(tip, {  className: 'custom-tooltip',  direction: 'top',  sticky: true,  offset: [0, -12],  opacity: 1});
+
         // הוספת permanent: false וביטול sticky כדי שהטולטיפ יופיע בדיוק מעל הפוליגון של הבניין כשמרחפים עליו
         // Tooltip is handled by the marker, not the polygon.
         leafletLayer.on('click', () => { if (isAdmin) setSelectedBldg(b); });
@@ -1127,7 +1130,7 @@ function App() {
       const tip = `<div style="padding:3px"><strong style="color:#f1f5f9;font-size:12px">${b.address}</strong><div style="margin-top:3px">${paidStr}</div></div>`;
       
       // ביטול sticky: false כדי שהטולטיפ יישאר יציב מעל הסימון ולא יזוז עם העכבר
-      m.bindTooltip(tip, {  className: 'custom-tooltip',  direction: 'top',  sticky: true,  offset: [0, -15],  opacity: 1});
+
       m.on('click',()=>{
         setBuildings(prev=>{
           const cur=prev.find(x=>x.id===b.id);
