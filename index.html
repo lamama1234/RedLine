@@ -65,7 +65,12 @@
     pointer-events: none !important;
     }
 
+#map { direction: ltr; }
 
+/* belt-and-suspenders: anchor tooltips to the left like Leaflet expects */
+.leaflet-tooltip { left: 0; top: 0; }
+
+    
     .badge-uncommitted { background: rgba(100,116,139,0.25); color: #94a3b8; border: 1px solid rgba(100,116,139,0.4); }
     .badge-committed   { background: rgba(59,130,246,0.25); color: #93c5fd; border: 1px solid rgba(59,130,246,0.45); }
     .badge-paid        { background: rgba(16,185,129,0.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.45); }
